@@ -7,21 +7,20 @@ import { cn } from '@/lib/utils';
 
 const TITLE_TEXT = "QuantumTrade";
 const SLOGAN_TEXT = "Your AI-Powered Edge in the Market.";
-const TITLE_CHAR_DELAY = 100; // ms
-const SLOGAN_CHAR_DELAY = 60; // ms
-const DELAY_AFTER_TITLE_TYPED = 300; // ms
-const DELAY_BEFORE_DISSOLVE = 1500; // ms
+
+// Timings for the cinematic intro
+const INITIAL_ELEMENTS_FADE_IN_DURATION = 1000; // ms for icon, title, slogan to fade in
+const TITLE_FADE_IN_DELAY = 200; // ms after icon starts fading
+const SLOGAN_FADE_IN_DELAY = 400; // ms after icon starts fading
+const VIEW_DURATION_AFTER_FADE_IN = 3000; // ms to keep everything visible before dissolving
+const DISSOLVE_ANIMATION_DURATION = 1500; // ms for the dissolve effect
 
 export function SplashScreen() {
-  const [displayedTitle, setDisplayedTitle] = useState("");
-  const [displayedSlogan, setDisplayedSlogan] = useState("");
-  const [isTitleComplete, setIsTitleComplete] = useState(false);
-  const [isSloganComplete, setIsSloganComplete] = useState(false);
   const [startDissolve, setStartDissolve] = useState(false);
   const [showElements, setShowElements] = useState(false);
 
   useEffect(() => {
-    // Initial fade-in for the container
+    // Initial fade-in for the container elements
     const showTimer = setTimeout(() => setShowElements(true), 50);
     return () => clearTimeout(showTimer);
   }, []);
@@ -29,43 +28,26 @@ export function SplashScreen() {
   useEffect(() => {
     if (!showElements) return;
 
-    // Typewriter for Title
-    if (displayedTitle.length < TITLE_TEXT.length) {
-      const timeoutId = setTimeout(() => {
-        setDisplayedTitle(TITLE_TEXT.slice(0, displayedTitle.length + 1));
-      }, TITLE_CHAR_DELAY);
-      return () => clearTimeout(timeoutId);
-    } else if (!isTitleComplete) {
-      setIsTitleComplete(true);
-    }
-  }, [displayedTitle, isTitleComplete, showElements]);
+    // Calculate when everything should be fully visible
+    // Icon starts at 0ms (relative to showElements), duration INITIAL_ELEMENTS_FADE_IN_DURATION
+    // Title starts at TITLE_FADE_IN_DELAY, duration INITIAL_ELEMENTS_FADE_IN_DURATION
+    // Slogan starts at SLOGAN_FADE_IN_DELAY, duration INITIAL_ELEMENTS_FADE_IN_DURATION
+    const maxFadeInTime = Math.max(
+      INITIAL_ELEMENTS_FADE_IN_DURATION,
+      TITLE_FADE_IN_DELAY + INITIAL_ELEMENTS_FADE_IN_DURATION,
+      SLOGAN_FADE_IN_DELAY + INITIAL_ELEMENTS_FADE_IN_DURATION
+    );
 
-  useEffect(() => {
-    if (!isTitleComplete) return;
+    const dissolveTimer = setTimeout(() => {
+      setStartDissolve(true);
+    }, maxFadeInTime + VIEW_DURATION_AFTER_FADE_IN);
 
-    // Typewriter for Slogan (starts after a delay from title completion)
-    if (displayedSlogan.length < SLOGAN_TEXT.length) {
-      const timeoutId = setTimeout(() => {
-        setDisplayedSlogan(SLOGAN_TEXT.slice(0, displayedSlogan.length + 1));
-      }, SLOGAN_CHAR_DELAY);
-      return () => clearTimeout(timeoutId);
-    } else if (!isSloganComplete) {
-      setIsSloganComplete(true);
-    }
-  }, [displayedSlogan, isTitleComplete, isSloganComplete, DELAY_AFTER_TITLE_TYPED]);
+    return () => clearTimeout(dissolveTimer);
+  }, [showElements]);
 
-  useEffect(() => {
-    if (isSloganComplete) {
-      // Start dissolve effect after slogan is typed and a pause
-      const dissolveTimer = setTimeout(() => {
-        setStartDissolve(true);
-      }, DELAY_BEFORE_DISSOLVE);
-      return () => clearTimeout(dissolveTimer);
-    }
-  }, [isSloganComplete]);
-
-  const baseElementClass = "transition-opacity duration-1000 ease-in-out";
+  const baseElementClass = "transition-opacity duration-1000 ease-in-out"; // Using CSS transition duration
   const initialOpacityClass = showElements ? "opacity-100" : "opacity-0";
+  const cinematicFadeInClass = "animate-cinematic-fade-in";
   const dissolveAnimationClass = "animate-cinematic-fade-out-dissolve";
 
   return (
@@ -79,31 +61,35 @@ export function SplashScreen() {
         className={cn(
           baseElementClass,
           initialOpacityClass,
-           "animate-cinematic-fade-in", // Initial fade-in for the group
+          cinematicFadeInClass, 
           startDissolve && dissolveAnimationClass
         )}
+        style={{ animationDuration: `${INITIAL_ELEMENTS_FADE_IN_DURATION}ms` }}
       >
         <Sparkles
           className={cn(
             "h-16 w-16 sm:h-20 sm:w-20 mr-auto ml-auto mb-6 text-primary drop-shadow-neon-primary",
-            showElements ? "animate-pulse" : "" // Pulse only after fade-in
+             showElements ? "animate-pulse" : "" // Pulse only after fade-in
           )}
         />
       </div>
 
-      <div className="overflow-hidden"> {/* Wrapper for typewriter text to prevent layout shift */}
+      <div className="overflow-hidden">
         <h1
           id="splash-screen-title"
           className={cn(
             baseElementClass,
             initialOpacityClass,
-            "text-6xl sm:text-8xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-4 min-h-[80px] sm:min-h-[120px]", // min-h to prevent jump
-             "animate-cinematic-fade-in animation-delay-[200ms]", // Staggered fade-in
+            cinematicFadeInClass,
+            "text-6xl sm:text-8xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-4 min-h-[80px] sm:min-h-[120px]",
             startDissolve && dissolveAnimationClass
           )}
+          style={{ 
+            animationDuration: `${INITIAL_ELEMENTS_FADE_IN_DURATION}ms`,
+            animationDelay: showElements ? `${TITLE_FADE_IN_DELAY}ms` : '0ms'
+          }}
         >
-          {displayedTitle}
-          <span className={cn("animate-blink-cursor opacity-0", {"opacity-100": !isTitleComplete && displayedTitle.length < TITLE_TEXT.length && displayedTitle.length > 0, "hidden": isTitleComplete})}>|</span>
+          {TITLE_TEXT}
         </h1>
       </div>
 
@@ -112,13 +98,16 @@ export function SplashScreen() {
           className={cn(
             baseElementClass,
             initialOpacityClass,
-            "text-xl sm:text-2xl text-muted-foreground min-h-[30px] sm:min-h-[40px]", // min-h
-             "animate-cinematic-fade-in animation-delay-[400ms]", // Staggered fade-in
+            cinematicFadeInClass,
+            "text-xl sm:text-2xl text-muted-foreground min-h-[30px] sm:min-h-[40px]",
             startDissolve && dissolveAnimationClass
           )}
+           style={{ 
+            animationDuration: `${INITIAL_ELEMENTS_FADE_IN_DURATION}ms`,
+            animationDelay: showElements ? `${SLOGAN_FADE_IN_DELAY}ms` : '0ms'
+          }}
         >
-          {displayedSlogan}
-           <span className={cn("animate-blink-cursor opacity-0", {"opacity-100": isTitleComplete && !isSloganComplete && displayedSlogan.length < SLOGAN_TEXT.length && displayedSlogan.length > 0, "hidden": isSloganComplete})}>|</span>
+          {SLOGAN_TEXT}
         </p>
       </div>
     </div>
