@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devServer: {
+    allowedDevOrigins: [
+      // Allow requests from the detected Firebase Studio / Cloud Workstations origin
+      'https://6000-firebase-studio-1749749106064.cluster-zkm2jrwbnbd4awuedc2alqxrpk.cloudworkstations.dev',
+    ],
+  },
 };
 
 export default nextConfig;
