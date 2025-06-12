@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Bot, ShieldCheck, LineChart, Briefcase, DollarSign, ArrowRightLeft, Loader2, Tag, Hash, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { Bot, ShieldCheck, LineChart, Briefcase, DollarSign, ArrowRightLeft, Loader2, Tag, Hash, TrendingUp, TrendingDown, Wallet, ListOrdered, Activity } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateTradeRecommendations, type GenerateTradeRecommendationsOutput } from '@/ai/flows/generate-trade-recommendations';
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,7 +29,44 @@ const recommendationFormSchema = z.object({
 const tradeExecutionSchema = z.object({
   ticker: z.string().min(1, "Ticker symbol is required.").max(10, "Ticker symbol is too long.").toUpperCase(),
   quantity: z.coerce.number().int().positive("Quantity must be a positive whole number."),
+  purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
+  targetPrice: z.coerce.number().positive("Target price must be positive.").optional().nullable(),
+  stopLossPrice: z.coerce.number().positive("Stop-loss price must be positive.").optional().nullable(),
+}).refine(data => {
+  if (data.targetPrice && data.purchasePrice && data.targetPrice <= data.purchasePrice) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Target price must be greater than purchase price.",
+  path: ["targetPrice"],
+}).refine(data => {
+  if (data.stopLossPrice && data.purchasePrice && data.stopLossPrice >= data.purchasePrice) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Stop-loss price must be less than purchase price.",
+  path: ["stopLossPrice"],
+}).refine(data => {
+  if (data.targetPrice && data.stopLossPrice && data.targetPrice <= data.stopLossPrice) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Target price must be greater than stop-loss price if both are set.",
+  path: ["targetPrice"],
 });
+
+interface ActivePosition {
+  id: string;
+  ticker: string;
+  quantity: number;
+  purchasePrice: number;
+  currentMockPrice: number;
+  targetPrice?: number | null;
+  stopLossPrice?: number | null;
+}
 
 export function TradeExecutionCard() {
   const [recommendations, setRecommendations] = useState<GenerateTradeRecommendationsOutput | null>(null);
@@ -37,6 +75,9 @@ export function TradeExecutionCard() {
   
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const { toast } = useToast();
+
+  const [activePositions, setActivePositions] = useState<ActivePosition[]>([]);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const recommendationForm = useForm<z.infer<typeof recommendationFormSchema>>({
     resolver: zodResolver(recommendationFormSchema),
@@ -52,6 +93,9 @@ export function TradeExecutionCard() {
     defaultValues: {
       ticker: "",
       quantity: 1,
+      purchasePrice: 100,
+      targetPrice: undefined,
+      stopLossPrice: undefined,
     },
   });
 
@@ -89,15 +133,101 @@ export function TradeExecutionCard() {
   async function onExecuteTrade(values: z.infer<typeof tradeExecutionSchema>, action: 'BUY' | 'SELL') {
     setIsExecutingTrade(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay
 
-    toast({
-      title: `Trade ${action === 'BUY' ? 'Bought' : 'Sold'} (Simulated)`,
-      description: `${action} ${values.quantity} shares of ${values.ticker.toUpperCase()}.`,
-    });
-    tradeExecutionForm.reset({ ticker: "", quantity: 1 });
+    if (action === 'BUY') {
+      const newPosition: ActivePosition = {
+        id: Date.now().toString(),
+        ticker: values.ticker.toUpperCase(),
+        quantity: values.quantity,
+        purchasePrice: values.purchasePrice,
+        currentMockPrice: values.purchasePrice,
+        targetPrice: values.targetPrice,
+        stopLossPrice: values.stopLossPrice,
+      };
+      setActivePositions(prev => [...prev, newPosition]);
+      toast({
+        title: `Simulated BUY: ${values.ticker.toUpperCase()}`,
+        description: `Bought ${values.quantity} shares at $${values.purchasePrice.toFixed(2)}. ${newPosition.targetPrice ? `TP: $${newPosition.targetPrice.toFixed(2)}.` : ''} ${newPosition.stopLossPrice ? `SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
+      });
+    } else { // SELL
+      setActivePositions(prev => {
+        const existingPositionIndex = prev.findIndex(p => p.ticker === values.ticker.toUpperCase());
+        if (existingPositionIndex > -1) {
+          const existingPosition = prev[existingPositionIndex];
+          if (existingPosition.quantity > values.quantity) {
+            const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - values.quantity };
+            const newPositions = [...prev];
+            newPositions[existingPositionIndex] = updatedPosition;
+            return newPositions;
+          } else {
+            return prev.filter(p => p.ticker !== values.ticker.toUpperCase());
+          }
+        }
+        return prev;
+      });
+      toast({
+        title: `Simulated SELL: ${values.ticker.toUpperCase()}`,
+        description: `Sold ${values.quantity} shares.`,
+      });
+    }
+
+    tradeExecutionForm.reset({ ticker: "", quantity: 1, purchasePrice: 100, targetPrice: undefined, stopLossPrice: undefined });
     setIsExecutingTrade(false);
   }
+  
+  useEffect(() => {
+    const calculateNewMockPrice = (currentPrice: number): number => {
+      const changePercent = (Math.random() - 0.49) * 0.03; // Max 1.5% change up or down
+      const newPrice = currentPrice * (1 + changePercent);
+      return Math.max(0.01, parseFloat(newPrice.toFixed(2))); // Ensure price is positive and 2 decimal places
+    };
+
+    const checkAndExecuteConditionalSell = (position: ActivePosition): boolean => {
+      let sold = false;
+      let reason = "";
+
+      if (position.targetPrice && position.currentMockPrice >= position.targetPrice) {
+        reason = `Target Price $${position.targetPrice.toFixed(2)} Reached`;
+        sold = true;
+      } else if (position.stopLossPrice && position.currentMockPrice <= position.stopLossPrice) {
+        reason = `Stop-Loss $${position.stopLossPrice.toFixed(2)} Triggered`;
+        sold = true;
+      }
+
+      if (sold) {
+        toast({
+          title: `AUTO-SELL (Simulated): ${position.ticker}`,
+          description: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`,
+          variant: "default",
+          duration: 7000,
+        });
+        return true; // Indicates position should be removed
+      }
+      return false; // Position remains
+    };
+
+    intervalRef.current = setInterval(() => {
+      setActivePositions(prevPositions => 
+        prevPositions
+          .map(pos => ({
+            ...pos,
+            currentMockPrice: calculateNewMockPrice(pos.currentMockPrice),
+          }))
+          .filter(pos => {
+            const shouldBeRemoved = checkAndExecuteConditionalSell(pos);
+            return !shouldBeRemoved; // Keep if not sold
+          })
+      );
+    }, 3000); // Update prices every 3 seconds
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [toast]);
+
 
   return (
     <Card className="w-full shadow-xl hover:shadow-accent/20 transition-shadow duration-300">
@@ -219,32 +349,75 @@ export function TradeExecutionCard() {
           <h3 className="text-lg font-semibold font-headline text-primary mb-3">Execute Trade (Simulated)</h3>
           <Form {...tradeExecutionForm}>
             <form className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={tradeExecutionForm.control}
+                  name="ticker"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><Tag className="h-4 w-4 mr-2 text-muted-foreground" />Stock Ticker</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., AAPL" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={tradeExecutionForm.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><Hash className="h-4 w-4 mr-2 text-muted-foreground" />Quantity</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g., 10" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
-                control={tradeExecutionForm.control}
-                name="ticker"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center"><Tag className="h-4 w-4 mr-2 text-muted-foreground" />Stock Ticker</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., AAPL" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={tradeExecutionForm.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center"><Hash className="h-4 w-4 mr-2 text-muted-foreground" />Quantity</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="e.g., 10" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  control={tradeExecutionForm.control}
+                  name="purchasePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />Purchase Price (for Buy)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g., 150.75" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={tradeExecutionForm.control}
+                  name="targetPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><TrendingUp className="h-4 w-4 mr-2 text-muted-foreground" />Target Price (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g., 160" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={tradeExecutionForm.control}
+                  name="stopLossPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><TrendingDown className="h-4 w-4 mr-2 text-muted-foreground" />Stop-Loss Price (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g., 140" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <div className="flex space-x-4">
                 <Button 
                   type="button" 
@@ -269,6 +442,53 @@ export function TradeExecutionCard() {
             </form>
           </Form>
         </section>
+
+        {activePositions.length > 0 && (
+          <>
+            <Separator className="my-8" />
+            <section>
+              <div className="flex items-center mb-3">
+                <ListOrdered className="h-6 w-6 mr-2 text-primary" />
+                <h3 className="text-lg font-semibold font-headline text-primary">Current Holdings &amp; Conditional Orders (Simulated)</h3>
+              </div>
+               <Card className="border-border/50">
+                <CardContent className="p-0">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Ticker</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Purch. $</TableHead>
+                        <TableHead className="text-right">Mock $</TableHead>
+                        <TableHead className="text-right">Target $</TableHead>
+                        <TableHead className="text-right">Stop-Loss $</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {activePositions.map((pos) => (
+                        <TableRow key={pos.id}>
+                            <TableCell className="font-medium">{pos.ticker}</TableCell>
+                            <TableCell className="text-right">{pos.quantity}</TableCell>
+                            <TableCell className="text-right">${pos.purchasePrice.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-semibold text-primary/90">
+                               <div className="flex items-center justify-end">
+                                <Activity className="h-3 w-3 mr-1 animate-pulse text-accent" />
+                                ${pos.currentMockPrice.toFixed(2)}
+                               </div>
+                            </TableCell>
+                            <TableCell className="text-right text-green-500">{pos.targetPrice ? `$${pos.targetPrice.toFixed(2)}` : '-'}</TableCell>
+                            <TableCell className="text-right text-red-500">{pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(2)}` : '-'}</TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+                </Card>
+                <p className="text-xs text-muted-foreground mt-2">Mock prices update automatically to simulate market activity and trigger conditional orders.</p>
+            </section>
+          </>
+        )}
+
       </CardContent>
       <CardFooter>
         <p className="text-xs text-muted-foreground">
@@ -279,5 +499,4 @@ export function TradeExecutionCard() {
     </Card>
   );
 }
-
     
