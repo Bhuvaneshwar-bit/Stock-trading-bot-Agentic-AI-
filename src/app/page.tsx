@@ -20,7 +20,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 2500); // Adjust splash screen duration here (in milliseconds)
+    }, 3500); // Increased splash screen duration for cinematic feel
     return () => clearTimeout(timer);
   }, []);
 

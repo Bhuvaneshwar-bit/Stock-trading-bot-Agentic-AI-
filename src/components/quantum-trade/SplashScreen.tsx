@@ -6,38 +6,51 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 export function SplashScreen() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [titleVisible, setTitleVisible] = useState(false);
+  const [sloganVisible, setSloganVisible] = useState(false);
 
   useEffect(() => {
-    // Trigger the fade-in after a short delay to ensure the transition applies
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 50); // ms
-    return () => clearTimeout(timer);
+    const titleTimer = setTimeout(() => {
+      setTitleVisible(true);
+    }, 50); // ms, slight delay for transition to catch
+    const sloganTimer = setTimeout(() => {
+      setSloganVisible(true);
+    }, 700); // Slogan appears after title
+
+    return () => {
+      clearTimeout(titleTimer);
+      clearTimeout(sloganTimer);
+    };
   }, []);
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background text-center px-4"
       aria-labelledby="splash-screen-title"
       role="dialog"
       aria-modal="true"
     >
       <div
         className={cn(
-          "p-8 rounded-lg shadow-xl bg-gradient-to-br from-primary/20 via-accent/10 to-background border border-primary/30 max-w-xl w-full mx-4 text-center",
-          "transition-opacity duration-1000 ease-in-out", // Increased duration for a smoother effect
-          isVisible ? "opacity-100" : "opacity-0"
+          "transition-opacity duration-[1500ms] ease-in-out",
+          titleVisible ? "opacity-100" : "opacity-0"
         )}
       >
-        <div className="flex items-center justify-center mb-4">
-          <Sparkles className="h-12 w-12 mr-3 text-primary drop-shadow-neon-primary animate-pulse" />
-          <h1 id="splash-screen-title" className="text-4xl sm:text-5xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+        <div className="flex items-center justify-center mb-6">
+          <Sparkles className="h-16 w-16 sm:h-20 sm:w-20 mr-3 text-primary drop-shadow-neon-primary animate-pulse" />
+          <h1 id="splash-screen-title" className="text-6xl sm:text-8xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
             QuantumTrade
           </h1>
         </div>
-        <p className="text-lg sm:text-xl text-muted-foreground">
-          Your AI-Powered Edge in the Market. Analyze, Summarize, and Simulate Trades with Cutting-Edge Technology.
+      </div>
+      <div
+        className={cn(
+          "transition-opacity duration-[1200ms] ease-in-out",
+          sloganVisible ? "opacity-100" : "opacity-0"
+        )}
+      >
+        <p className="text-xl sm:text-2xl text-muted-foreground">
+          Your AI-Powered Edge in the Market.
         </p>
       </div>
     </div>
