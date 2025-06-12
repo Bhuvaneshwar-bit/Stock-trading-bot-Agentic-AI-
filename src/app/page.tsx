@@ -1,3 +1,7 @@
+
+"use client";
+
+import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { StockAnalysisCard } from '@/components/quantum-trade/StockAnalysisCard';
 import { NewsSummarizerCard } from '@/components/quantum-trade/NewsSummarizerCard';
@@ -5,23 +9,39 @@ import { TradeExecutionCard } from '@/components/quantum-trade/TradeExecutionCar
 import { NotificationsPanel } from '@/components/quantum-trade/NotificationsPanel';
 import { SectionTitle } from '@/components/quantum-trade/SectionTitle';
 import { MarketIndicatorsChart } from '@/components/quantum-trade/MarketIndicatorsChart';
-import { BrainCircuit, Newspaper, CandlestickChart, Bell } from 'lucide-react';
+import { WelcomeBanner } from '@/components/quantum-trade/WelcomeBanner';
+import { BrainCircuit, Newspaper, CandlestickChart, LineChart } from 'lucide-react';
 
 export default function Home() {
+  const [selectedStockTicker, setSelectedStockTicker] = useState<string | null>(null);
+
+  const handleStockSelected = (ticker: string | null) => {
+    setSelectedStockTicker(ticker);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-12">
-        
+        <WelcomeBanner />
+
         {/* Market Analysis & News Section */}
         <section aria-labelledby="market-analysis-title">
           <SectionTitle title="Market Intelligence" icon={BrainCircuit} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <StockAnalysisCard />
+            <StockAnalysisCard onStockSelected={handleStockSelected} />
             <NewsSummarizerCard />
           </div>
         </section>
 
+        {/* Visualizations Section */}
+        <section aria-labelledby="visualizations-title">
+          <SectionTitle title="Market Visualizations" icon={LineChart} />
+           <div className="grid grid-cols-1 gap-8">
+            <MarketIndicatorsChart selectedStockTicker={selectedStockTicker} />
+          </div>
+        </section>
+        
         {/* Trading Desk Section */}
         <section aria-labelledby="trading-desk-title">
           <SectionTitle title="AI Trading Desk" icon={CandlestickChart} />
@@ -32,14 +52,6 @@ export default function Home() {
             <div className="lg:col-span-1">
                <NotificationsPanel />
             </div>
-          </div>
-        </section>
-        
-        {/* Visualizations Section (Placeholder) */}
-        <section aria-labelledby="visualizations-title">
-          <SectionTitle title="Market Visualizations" icon={CandlestickChart} />
-           <div className="grid grid-cols-1 gap-8">
-            <MarketIndicatorsChart />
           </div>
         </section>
 
