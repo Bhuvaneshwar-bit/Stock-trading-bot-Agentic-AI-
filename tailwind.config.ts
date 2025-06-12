@@ -89,17 +89,18 @@ export default {
             height: '0',
           },
         },
-        'cinematic-icon-quick-in': {
-          '0%': { opacity: '0', transform: 'scale(0.7)' },
-          '100%': { opacity: '1', transform: 'scale(1)' },
+        'splash-icon-appear': {
+          '0%': { opacity: '0', transform: 'scale(0.5) rotate(-45deg)' },
+          '60%': { opacity: '1', transform: 'scale(1.1) rotate(10deg)' },
+          '100%': { opacity: '1', transform: 'scale(1) rotate(0deg)' },
         },
-        'cinematic-title-reveal': {
-          '0%': { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
-          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+        'splash-title-emerge': {
+          '0%': { opacity: '0', transform: 'translateY(30px) scale(0.95)' },
+          '100%': { opacity: '1', transform: 'translateY(0px) scale(1)' },
         },
-        'cinematic-slogan-reveal': {
-          '0%': { opacity: '0', transform: 'translateY(15px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
+        'splash-slogan-fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0px)' },
         },
         'splash-overall-fade-out': {
           '0%': { opacity: '1' },
@@ -109,9 +110,9 @@ export default {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'cinematic-icon-quick-in': 'cinematic-icon-quick-in 0.8s ease-out forwards',
-        'cinematic-title-reveal': 'cinematic-title-reveal 1s ease-out forwards', // Delay handled in component
-        'cinematic-slogan-reveal': 'cinematic-slogan-reveal 1s ease-out forwards', // Delay handled in component
+        'splash-icon': 'splash-icon-appear 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+        'splash-title': 'splash-title-emerge 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+        'splash-slogan': 'splash-slogan-fade-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
         'splash-overall-fade-out': 'splash-overall-fade-out 1s ease-out forwards',
       },
       dropShadow: {

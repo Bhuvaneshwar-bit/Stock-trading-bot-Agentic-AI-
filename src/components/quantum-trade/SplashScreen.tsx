@@ -25,7 +25,7 @@ const MAX_INTRO_ANIMATION_END_TIME = Math.max(
   SLOGAN_FADE_IN_DELAY + SLOGAN_ANIMATION_DURATION   // 800 + 1000 = 1800ms
 ); // So, all elements are fully in by 1800ms
 
-const VIEW_DURATION_AFTER_ALL_FADE_IN = 1300; // ms to keep everything visible (Adjusted for pace)
+const VIEW_DURATION_AFTER_ALL_FADE_IN = 1300; // ms to keep everything visible
 const SPLASH_FADE_OUT_DURATION = 1000; // ms for the overall fade-out effect
 
 export function SplashScreen() {
@@ -33,13 +33,15 @@ export function SplashScreen() {
   const [startFadeOut, setStartFadeOut] = useState(false);
 
   useEffect(() => {
-    const showTimer = setTimeout(() => setShowElements(true), 50);
+    // Trigger animations shortly after component mounts
+    const showTimer = setTimeout(() => setShowElements(true), 50); // Small delay to ensure mount
     return () => clearTimeout(showTimer);
   }, []);
 
   useEffect(() => {
     if (!showElements) return;
 
+    // Timer to start the overall fade-out of the splash screen
     const fadeOutTimer = setTimeout(() => {
       setStartFadeOut(true);
     }, MAX_INTRO_ANIMATION_END_TIME + VIEW_DURATION_AFTER_ALL_FADE_IN);
@@ -47,6 +49,7 @@ export function SplashScreen() {
     return () => clearTimeout(fadeOutTimer);
   }, [showElements]);
 
+  // Initial opacity for elements before animation kicks in
   const initialOpacityClass = showElements ? "opacity-100" : "opacity-0";
   const overallFadeOutAnimationClass = "animate-splash-overall-fade-out";
 
@@ -61,11 +64,12 @@ export function SplashScreen() {
       role="dialog"
       aria-modal="true"
     >
+      {/* Sparkles Icon */}
       <Sparkles
         className={cn(
           "h-16 w-16 sm:h-20 sm:w-20 mb-6 text-primary drop-shadow-neon-primary",
-          initialOpacityClass, // Handles initial state before animation kicks in
-          showElements && "animate-cinematic-icon-quick-in"
+          initialOpacityClass, 
+          showElements && "animate-splash-icon" 
         )}
         style={{
           animationDuration: `${ICON_ANIMATION_DURATION}ms`,
@@ -73,12 +77,13 @@ export function SplashScreen() {
         }}
       />
 
+      {/* Title: QuantumTrade */}
       <div className="overflow-hidden"> {/* Ensures text doesn't jump during animation */}
         <h1
           id="splash-screen-title"
           className={cn(
             initialOpacityClass,
-            showElements && "animate-cinematic-title-reveal",
+            showElements && "animate-splash-title",
             "text-6xl sm:text-8xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-4 min-h-[80px] sm:min-h-[120px]"
           )}
           style={{
@@ -90,11 +95,12 @@ export function SplashScreen() {
         </h1>
       </div>
 
+      {/* Slogan */}
       <div className="overflow-hidden">
         <p
           className={cn(
             initialOpacityClass,
-            showElements && "animate-cinematic-slogan-reveal",
+            showElements && "animate-splash-slogan",
             "text-xl sm:text-2xl text-muted-foreground min-h-[30px] sm:min-h-[40px]"
           )}
            style={{
