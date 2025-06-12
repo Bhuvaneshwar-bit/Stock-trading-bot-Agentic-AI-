@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { StockAnalysisCard } from '@/components/quantum-trade/StockAnalysisCard';
 import { NewsSummarizerCard } from '@/components/quantum-trade/NewsSummarizerCard';
@@ -10,14 +10,27 @@ import { NotificationsPanel } from '@/components/quantum-trade/NotificationsPane
 import { SectionTitle } from '@/components/quantum-trade/SectionTitle';
 import { MarketIndicatorsChart } from '@/components/quantum-trade/MarketIndicatorsChart';
 import { WelcomeBanner } from '@/components/quantum-trade/WelcomeBanner';
+import { SplashScreen } from '@/components/quantum-trade/SplashScreen'; 
 import { BrainCircuit, Newspaper, CandlestickChart, LineChart } from 'lucide-react';
 
 export default function Home() {
   const [selectedStockTicker, setSelectedStockTicker] = useState<string | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500); // Adjust splash screen duration here (in milliseconds)
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleStockSelected = (ticker: string | null) => {
     setSelectedStockTicker(ticker);
   };
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
