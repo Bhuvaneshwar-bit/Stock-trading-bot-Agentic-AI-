@@ -1,3 +1,4 @@
+
 "use client"
 
 import { BarChart, TrendingUp } from "lucide-react"
@@ -18,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ChartTooltipContent } from "@/components/ui/chart"
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
 
 
 const chartData = [
@@ -53,31 +54,33 @@ export function MarketIndicatorsChart() {
         <CardDescription>January - June 2024 (Mock Data)</CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-            <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.5)" />
-                <XAxis 
-                    dataKey="month" 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                />
-                <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip
-                    cursor={{ fill: "hsl(var(--card)/0.5)" }}
-                    content={<ChartTooltipContent hideLabel />}
-                 />
-                <Bar dataKey="desktop" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name={chartConfig.desktop.label} />
-                <Bar dataKey="mobile" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name={chartConfig.mobile.label} />
-            </RechartsBarChart>
-        </ResponsiveContainer>
+        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+          <ResponsiveContainer width="100%" height={300}>
+              <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.5)" />
+                  <XAxis 
+                      dataKey="month" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                  />
+                  <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip
+                      cursor={{ fill: "hsl(var(--card)/0.5)" }}
+                      content={<ChartTooltipContent hideLabel />}
+                   />
+                  <Bar dataKey="desktop" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name={chartConfig.desktop.label} />
+                  <Bar dataKey="mobile" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name={chartConfig.mobile.label} />
+              </RechartsBarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   )
