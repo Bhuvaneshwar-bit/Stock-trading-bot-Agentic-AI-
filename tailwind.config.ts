@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -88,10 +89,25 @@ export default {
             height: '0',
           },
         },
+        'cinematic-fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'cinematic-fade-out-dissolve': {
+          '0%': { opacity: '1', filter: 'blur(0px)', transform: 'scale(1)' },
+          '100%': { opacity: '0', filter: 'blur(8px)', transform: 'scale(0.95)' },
+        },
+        'blink-cursor': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0' },
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'cinematic-fade-in': 'cinematic-fade-in 1s ease-out forwards',
+        'cinematic-fade-out-dissolve': 'cinematic-fade-out-dissolve 1.5s ease-in forwards',
+        'blink-cursor': 'blink-cursor 0.75s step-end infinite',
       },
       dropShadow: {
         'neon-primary': '0 0 8px hsl(var(--primary) / 0.7)',
