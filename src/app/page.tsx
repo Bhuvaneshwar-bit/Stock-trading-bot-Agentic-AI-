@@ -18,10 +18,10 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // MAX_INTRO_ANIMATION_END_TIME (1600ms) + VIEW_DURATION_AFTER_ALL_FADE_IN (1800ms) + DISSOLVE_ANIMATION_DURATION (1500ms) = 4900ms
+    // MAX_INTRO_ANIMATION_END_TIME (1800ms) + VIEW_DURATION_AFTER_ALL_FADE_IN (1300ms) + SPLASH_FADE_OUT_DURATION (1000ms) = 4100ms
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 4900); 
+    }, 4100); 
     return () => clearTimeout(timer);
   }, []);
 

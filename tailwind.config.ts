@@ -101,18 +101,18 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(15px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        'cinematic-fade-out-dissolve': {
-          '0%': { opacity: '1', filter: 'blur(0px)', transform: 'scale(1)' },
-          '100%': { opacity: '0', filter: 'blur(8px)', transform: 'scale(0.95)' },
+        'splash-overall-fade-out': {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'cinematic-icon-quick-in': 'cinematic-icon-quick-in 0.8s ease-out forwards',
-        'cinematic-title-reveal': 'cinematic-title-reveal 1s ease-out forwards',
-        'cinematic-slogan-reveal': 'cinematic-slogan-reveal 1s ease-out forwards',
-        'cinematic-fade-out-dissolve': 'cinematic-fade-out-dissolve 1.5s ease-in forwards',
+        'cinematic-title-reveal': 'cinematic-title-reveal 1s ease-out forwards', // Delay handled in component
+        'cinematic-slogan-reveal': 'cinematic-slogan-reveal 1s ease-out forwards', // Delay handled in component
+        'splash-overall-fade-out': 'splash-overall-fade-out 1s ease-out forwards',
       },
       dropShadow: {
         'neon-primary': '0 0 8px hsl(var(--primary) / 0.7)',
