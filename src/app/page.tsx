@@ -18,9 +18,10 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    // MAX_INTRO_ANIMATION_END_TIME (1600ms) + VIEW_DURATION_AFTER_ALL_FADE_IN (1800ms) + DISSOLVE_ANIMATION_DURATION (1500ms) = 4900ms
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 8000); // Increased splash screen duration for cinematic intro
+    }, 4900); 
     return () => clearTimeout(timer);
   }, []);
 

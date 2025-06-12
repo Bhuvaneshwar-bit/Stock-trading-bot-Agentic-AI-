@@ -6,19 +6,26 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 const TITLE_TEXT = "QuantumTrade";
-const SLOGAN_TEXT = "AI-Powered Market Edge."; // Shortened slogan
+const SLOGAN_TEXT = "AI-Powered Market Edge.";
 
-// Timings for the new cinematic intro
-const ICON_ANIMATION_DURATION = 1000; // ms
+// Timings for the faster, overlapping cinematic intro
+const ICON_ANIMATION_DURATION = 800; // ms
 const ICON_FADE_IN_DELAY = 200; // ms
 
-const TITLE_ANIMATION_DURATION = 1200; // ms
-const TITLE_FADE_IN_DELAY = 800; // ms (after icon starts fading in)
+const TITLE_ANIMATION_DURATION = 1000; // ms
+const TITLE_FADE_IN_DELAY = 400; // ms (starts before icon finishes)
 
 const SLOGAN_ANIMATION_DURATION = 1000; // ms
-const SLOGAN_FADE_IN_DELAY = 1800; // ms (after icon starts fading in)
+const SLOGAN_FADE_IN_DELAY = 600; // ms (starts before title finishes)
 
-const VIEW_DURATION_AFTER_ALL_FADE_IN = 2500; // ms to keep everything visible
+// Calculate when all intro animations are visually complete (i.e., the last one has finished)
+const MAX_INTRO_ANIMATION_END_TIME = Math.max(
+  ICON_FADE_IN_DELAY + ICON_ANIMATION_DURATION,       // 200 + 800 = 1000ms
+  TITLE_FADE_IN_DELAY + TITLE_ANIMATION_DURATION,     // 400 + 1000 = 1400ms
+  SLOGAN_FADE_IN_DELAY + SLOGAN_ANIMATION_DURATION    // 600 + 1000 = 1600ms
+); // So, all elements are fully in by 1600ms
+
+const VIEW_DURATION_AFTER_ALL_FADE_IN = 1800; // ms to keep everything visible (Reduced)
 const DISSOLVE_ANIMATION_DURATION = 1500; // ms for the dissolve effect
 
 export function SplashScreen() {
@@ -26,7 +33,7 @@ export function SplashScreen() {
   const [showElements, setShowElements] = useState(false);
 
   useEffect(() => {
-    // Initial trigger to start fade-in animations
+    // Minimal delay to ensure CSS classes are applied and animations can start
     const showTimer = setTimeout(() => setShowElements(true), 50);
     return () => clearTimeout(showTimer);
   }, []);
@@ -34,22 +41,16 @@ export function SplashScreen() {
   useEffect(() => {
     if (!showElements) return;
 
-    // Calculate when all intro animations are complete
-    const maxIntroAnimationEndTime = Math.max(
-      ICON_FADE_IN_DELAY + ICON_ANIMATION_DURATION,
-      TITLE_FADE_IN_DELAY + TITLE_ANIMATION_DURATION,
-      SLOGAN_FADE_IN_DELAY + SLOGAN_ANIMATION_DURATION
-    );
-
+    // Timer to start the dissolve effect after all elements have animated in and stayed visible
     const dissolveTimer = setTimeout(() => {
       setStartDissolve(true);
-    }, maxIntroAnimationEndTime + VIEW_DURATION_AFTER_ALL_FADE_IN);
+    }, MAX_INTRO_ANIMATION_END_TIME + VIEW_DURATION_AFTER_ALL_FADE_IN);
 
     return () => clearTimeout(dissolveTimer);
   }, [showElements]);
 
   const initialOpacityClass = showElements ? "opacity-100" : "opacity-0";
-  const dissolveAnimationClass = "animate-cinematic-fade-out-dissolve"; // Uses 1.5s duration from tailwind.config
+  const dissolveAnimationClass = "animate-cinematic-fade-out-dissolve";
 
   return (
     <div
@@ -60,15 +61,14 @@ export function SplashScreen() {
     >
       <div
         className={cn(
-          "transition-opacity ease-in-out", // Base for initial opacity handling
-          initialOpacityClass,
-          showElements && !startDissolve && "animate-cinematic-icon-in",
+          initialOpacityClass, // Handles initial state before animation kicks in
+          showElements && !startDissolve && "animate-cinematic-icon-quick-in",
           startDissolve && dissolveAnimationClass
         )}
         style={{
           animationDuration: showElements && !startDissolve ? `${ICON_ANIMATION_DURATION}ms` : `${DISSOLVE_ANIMATION_DURATION}ms`,
           animationDelay: showElements && !startDissolve ? `${ICON_FADE_IN_DELAY}ms` : '0ms',
-          opacity: showElements ? 1 : 0, // Ensure initial state for animation
+          // Opacity is controlled by the animation itself from 0 to 1
         }}
       >
         <Sparkles
@@ -83,16 +83,14 @@ export function SplashScreen() {
         <h1
           id="splash-screen-title"
           className={cn(
-            "transition-opacity ease-in-out",
             initialOpacityClass,
-            showElements && !startDissolve && "animate-cinematic-title-in",
+            showElements && !startDissolve && "animate-cinematic-title-reveal",
             "text-6xl sm:text-8xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-4 min-h-[80px] sm:min-h-[120px]",
             startDissolve && dissolveAnimationClass
           )}
           style={{
             animationDuration: showElements && !startDissolve ? `${TITLE_ANIMATION_DURATION}ms` : `${DISSOLVE_ANIMATION_DURATION}ms`,
             animationDelay: showElements && !startDissolve ? `${TITLE_FADE_IN_DELAY}ms` : '0ms',
-            opacity: showElements ? 1 : 0,
           }}
         >
           {TITLE_TEXT}
@@ -102,16 +100,14 @@ export function SplashScreen() {
       <div className="overflow-hidden">
         <p
           className={cn(
-            "transition-opacity ease-in-out",
             initialOpacityClass,
-            showElements && !startDissolve && "animate-cinematic-slogan-in",
+            showElements && !startDissolve && "animate-cinematic-slogan-reveal",
             "text-xl sm:text-2xl text-muted-foreground min-h-[30px] sm:min-h-[40px]",
             startDissolve && dissolveAnimationClass
           )}
            style={{
             animationDuration: showElements && !startDissolve ? `${SLOGAN_ANIMATION_DURATION}ms` : `${DISSOLVE_ANIMATION_DURATION}ms`,
             animationDelay: showElements && !startDissolve ? `${SLOGAN_FADE_IN_DELAY}ms` : '0ms',
-            opacity: showElements ? 1 : 0,
           }}
         >
           {SLOGAN_TEXT}

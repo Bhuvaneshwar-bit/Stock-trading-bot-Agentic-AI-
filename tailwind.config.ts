@@ -89,17 +89,17 @@ export default {
             height: '0',
           },
         },
-        'cinematic-icon-in': {
-          '0%': { opacity: '0', transform: 'scale(0.8)' },
+        'cinematic-icon-quick-in': {
+          '0%': { opacity: '0', transform: 'scale(0.7)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
-        'cinematic-title-in': {
-          '0%': { opacity: '0', transform: 'translateY(20px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
+        'cinematic-title-reveal': {
+          '0%': { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
-        'cinematic-slogan-in': {
-          '0%': { opacity: '0', transform: 'translateX(-15px)' },
-          '100%': { opacity: '1', transform: 'translateX(0)' },
+        'cinematic-slogan-reveal': {
+          '0%': { opacity: '0', transform: 'translateY(15px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'cinematic-fade-out-dissolve': {
           '0%': { opacity: '1', filter: 'blur(0px)', transform: 'scale(1)' },
@@ -109,10 +109,10 @@ export default {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'cinematic-icon-in': 'cinematic-icon-in ease-out forwards',
-        'cinematic-title-in': 'cinematic-title-in ease-out forwards',
-        'cinematic-slogan-in': 'cinematic-slogan-in ease-out forwards',
-        'cinematic-fade-out-dissolve': 'cinematic-fade-out-dissolve 1.5s ease-in forwards', // Duration defined here
+        'cinematic-icon-quick-in': 'cinematic-icon-quick-in 0.8s ease-out forwards',
+        'cinematic-title-reveal': 'cinematic-title-reveal 1s ease-out forwards',
+        'cinematic-slogan-reveal': 'cinematic-slogan-reveal 1s ease-out forwards',
+        'cinematic-fade-out-dissolve': 'cinematic-fade-out-dissolve 1.5s ease-in forwards',
       },
       dropShadow: {
         'neon-primary': '0 0 8px hsl(var(--primary) / 0.7)',
