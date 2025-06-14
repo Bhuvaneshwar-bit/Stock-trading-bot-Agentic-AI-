@@ -1,6 +1,7 @@
 
 import { PortfolioPageClient } from "@/components/portfolio/PortfolioPageClient";
 import type { Metadata } from 'next';
+import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
   title: 'My Portfolio - QuantumTrade',
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function PortfolioPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
+      <Header />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-12">
         <PortfolioPageClient />
       </main>
