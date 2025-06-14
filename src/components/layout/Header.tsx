@@ -1,5 +1,5 @@
 
-import { BarChartBig, Briefcase } from 'lucide-react';
+import { BarChartBig, Briefcase, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 
 export function Header() {
@@ -12,12 +12,15 @@ export function Header() {
             QuantumTrade
           </h1>
         </Link>
-        <nav className="flex items-center space-x-4">
+        <nav className="flex items-center space-x-6">
+          <Link href="/" className="flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            <LayoutDashboard className="h-5 w-5 mr-1.5" />
+            Dashboard
+          </Link>
           <Link href="/portfolio" className="flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             <Briefcase className="h-5 w-5 mr-1.5" />
             Portfolio
           </Link>
-          {/* Future navigation links can go here */}
         </nav>
       </div>
     </header>
