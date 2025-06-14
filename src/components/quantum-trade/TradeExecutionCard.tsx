@@ -20,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { generateTradeRecommendations, type GenerateTradeRecommendationsOutput } from '@/ai/flows/generate-trade-recommendations';
 import { useToast } from "@/hooks/use-toast";
-import type { Notification } from './NotificationsPanel'; // Import Notification type
+import type { Notification, ActivePosition } from '@/types';
 
 const recommendationFormSchema = z.object({
   marketData: z.string().min(10, "Market data must be at least 10 characters."),
@@ -61,16 +61,6 @@ const tradeExecutionSchema = z.object({
   path: ["targetPrice"],
 });
 
-interface ActivePosition {
-  id: string;
-  ticker: string;
-  quantity: number;
-  purchasePrice: number;
-  currentMockPrice: number;
-  targetPrice?: number | null;
-  stopLossPrice?: number | null;
-  mode: 'autopilot' | 'manual';
-}
 
 interface TradeExecutionCardProps {
   onAddNotification: (notificationDetails: Omit<Notification, 'id' | 'time' | 'read'>) => void;
@@ -84,7 +74,13 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const { toast } = useToast();
 
-  const [activePositions, setActivePositions] = useState<ActivePosition[]>([]);
+  const [activePositions, setActivePositions] = useState<ActivePosition[]>(() => {
+    if (typeof window !== 'undefined') {
+      const savedPositions = localStorage.getItem('quantumTradePortfolio');
+      return savedPositions ? JSON.parse(savedPositions) : [];
+    }
+    return [];
+  });
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [tradeMode, setTradeMode] = useState<'autopilot' | 'manual'>('manual');
 
@@ -116,6 +112,13 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
       tradeExecutionForm.clearErrors('stopLossPrice');
     }
   }, [tradeMode, tradeExecutionForm]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('quantumTradePortfolio', JSON.stringify(activePositions));
+    }
+  }, [activePositions]);
+
 
   async function onGenerateRecommendations(values: z.infer<typeof recommendationFormSchema>) {
     setIsGeneratingRecommendations(true);
@@ -150,18 +153,19 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
   async function onExecuteTrade(values: z.infer<typeof tradeExecutionSchema>, action: 'BUY' | 'SELL') {
     setIsExecutingTrade(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500)); 
 
     if (action === 'BUY') {
       const newPosition: ActivePosition = {
-        id: Date.now().toString(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2,9),
         ticker: values.ticker.toUpperCase(),
         quantity: values.quantity,
         purchasePrice: values.purchasePrice,
-        currentMockPrice: values.purchasePrice,
+        currentMockPrice: values.purchasePrice, // Initial mock price is purchase price
         targetPrice: tradeMode === 'autopilot' ? values.targetPrice : undefined,
         stopLossPrice: tradeMode === 'autopilot' ? values.stopLossPrice : undefined,
         mode: tradeMode,
+        purchaseDate: new Date().toISOString(),
       };
       setActivePositions(prev => [...prev, newPosition]);
       
@@ -176,10 +180,9 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         title: `Simulated BUY (${tradeMode}): ${values.ticker.toUpperCase()}`,
         description: `Bought ${values.quantity} shares at $${values.purchasePrice.toFixed(2)}. ${newPosition.targetPrice ? `TP: $${newPosition.targetPrice.toFixed(2)}.` : ''} ${newPosition.stopLossPrice ? `SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
       });
-    } else { // SELL
+    } else { 
       const tickerToSell = values.ticker.toUpperCase();
       const quantityToSell = values.quantity;
-      let soldSuccessfully = false;
       
       setActivePositions(prev => {
         const existingPositionIndex = prev.findIndex(p => p.ticker === tickerToSell);
@@ -189,8 +192,8 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
           const soldAll = existingPosition.quantity <= quantityToSell;
           
           const sellMessage = soldAll ?
-            `Sold all ${existingPosition.quantity} shares of ${tickerToSell} at current market price.` :
-            `Sold ${sellQuantity} of ${existingPosition.quantity} shares of ${tickerToSell} at current market price.`;
+            `Sold all ${existingPosition.quantity} shares of ${tickerToSell} at $${existingPosition.currentMockPrice.toFixed(2)} (market).` :
+            `Sold ${sellQuantity} of ${existingPosition.quantity} shares of ${tickerToSell} at $${existingPosition.currentMockPrice.toFixed(2)} (market).`;
 
           onAddNotification({
             type: 'trade',
@@ -201,7 +204,6 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
              title: `Simulated SELL: ${tickerToSell}`,
              description: soldAll ? `Sold all ${existingPosition.quantity} shares.` : `Sold ${sellQuantity} of ${existingPosition.quantity} shares.`,
           });
-          soldSuccessfully = true;
 
           if (soldAll) {
             return prev.filter(p => p.ticker !== tickerToSell);
@@ -217,8 +219,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
             title: `Sell Failed: ${tickerToSell}`,
             description: `No active position found for ${tickerToSell}.`,
           });
-          soldSuccessfully = false; // Explicitly set
-          return prev; // No change to positions
+          return prev; 
         }
       });
     }
@@ -229,7 +230,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
   
   useEffect(() => {
     const calculateNewMockPrice = (currentPrice: number): number => {
-      const changePercent = (Math.random() - 0.49) * 0.03;
+      const changePercent = (Math.random() - 0.49) * 0.03; // Simulate small daily fluctuation
       const newPrice = currentPrice * (1 + changePercent);
       return Math.max(0.01, parseFloat(newPrice.toFixed(2)));
     };
@@ -275,9 +276,13 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
             stillActivePositions.push(pos);
           }
         }
+        // Persist changes from mock price updates and auto-sells
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('quantumTradePortfolio', JSON.stringify(stillActivePositions));
+        }
         return stillActivePositions;
       });
-    }, 3000);
+    }, 3000); // Update mock prices every 3 seconds
 
     return () => {
       if (intervalRef.current) {
@@ -297,7 +302,6 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         <CardDescription>Configure parameters for AI recommendations or execute trades.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Recommendation Generation Form */}
         <section>
           <h3 className="text-lg font-semibold font-headline text-primary mb-3">Generate AI Trade Recommendations</h3>
           <Form {...recommendationForm}>
@@ -402,7 +406,6 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
         <Separator className="my-8" />
 
-        {/* Trade Execution Form */}
         <section>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold font-headline text-primary">Execute Trade (Simulated)</h3>
