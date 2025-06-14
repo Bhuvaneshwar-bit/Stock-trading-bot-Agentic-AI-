@@ -107,6 +107,9 @@ export function TradeExecutionCard() {
     if (tradeMode === 'manual') {
       tradeExecutionForm.setValue('targetPrice', undefined);
       tradeExecutionForm.setValue('stopLossPrice', undefined);
+      // Clear errors for these fields when switching to manual
+      tradeExecutionForm.clearErrors('targetPrice');
+      tradeExecutionForm.clearErrors('stopLossPrice');
     }
   }, [tradeMode, tradeExecutionForm]);
 
@@ -443,52 +446,52 @@ export function TradeExecutionCard() {
                     </FormItem>
                   )}
                 />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={tradeExecutionForm.control}
-                  name="targetPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className={`flex items-center ${tradeMode === 'manual' ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                        <TrendingUp className="h-4 w-4 mr-2" />Target Price (Autopilot)
-                      </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          placeholder="e.g., 160" 
-                          {...field} 
-                          onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
-                          disabled={tradeMode === 'manual'}
-                        />
-                      </FormControl>
-                      {tradeMode === 'autopilot' && <FormMessage />}
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={tradeExecutionForm.control}
-                  name="stopLossPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className={`flex items-center ${tradeMode === 'manual' ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                        <TrendingDown className="h-4 w-4 mr-2" />Stop-Loss Price (Autopilot)
+              {tradeMode === 'autopilot' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={tradeExecutionForm.control}
+                    name="targetPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center text-muted-foreground">
+                          <TrendingUp className="h-4 w-4 mr-2" />Target Price (Autopilot)
                         </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          placeholder="e.g., 140" 
-                          {...field} 
-                          onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
-                          disabled={tradeMode === 'manual'}
-                        />
-                      </FormControl>
-                      {tradeMode === 'autopilot' && <FormMessage />}
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="e.g., 160" 
+                            {...field} 
+                            onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={tradeExecutionForm.control}
+                    name="stopLossPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center text-muted-foreground">
+                          <TrendingDown className="h-4 w-4 mr-2" />Stop-Loss Price (Autopilot)
+                          </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="e.g., 140" 
+                            {...field} 
+                            onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
               <div className="flex space-x-4">
                 <Button 
                   type="button" 
