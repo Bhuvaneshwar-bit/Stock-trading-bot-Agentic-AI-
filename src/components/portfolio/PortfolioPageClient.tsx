@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { PortfolioSummaryCards } from './PortfolioSummaryCards';
 import { InvestmentBreakdownChart } from './InvestmentBreakdownChart';
 import { InvestmentList } from './InvestmentList';
 import { AIPortfolioProjection } from './AIPortfolioProjection';
 import { SectionTitle } from '@/components/quantum-trade/SectionTitle';
-import { Briefcase, PieChart, ListChecks, BrainCircuit, AlertTriangle, Info, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Briefcase, PieChart, ListChecks, BrainCircuit, AlertTriangle, Info, TrendingUp, ArrowLeft } from 'lucide-react';
 import type { ActivePosition, PortfolioPosition, PortfolioSummary, DonutChartData } from '@/types';
 import { predictPortfolioValue, type PredictPortfolioValueOutput } from '@/ai/flows/predict-portfolio-value';
 import { Card, CardContent } from '@/components/ui/card';
@@ -131,6 +133,10 @@ export function PortfolioPageClient() {
         }
       };
       fetchPrediction();
+    } else if (portfolioData.positions.length === 0) {
+        setAiPrediction(null); // Clear prediction if portfolio becomes empty
+        setIsPredicting(false);
+        setPredictionError(null);
     }
   }, [portfolioData.positions, aiPrediction, isPredicting]);
 
@@ -138,6 +144,9 @@ export function PortfolioPageClient() {
   if (isLoadingPositions) {
     return (
       <div className="space-y-12">
+        <div className="mb-6">
+          <Skeleton className="h-10 w-40" />
+        </div>
         <SectionTitle title="My Portfolio" icon={Briefcase} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <Skeleton className="h-24 w-full" />
@@ -165,11 +174,19 @@ export function PortfolioPageClient() {
   
   if (portfolioData.positions.length === 0 && !isLoadingPositions) {
     return (
-      <div className="text-center py-16">
-        <TrendingUp className="mx-auto h-16 w-16 text-primary mb-6" />
-        <h2 className="text-3xl font-semibold mb-3">Your Portfolio is Empty</h2>
-        <p className="text-muted-foreground mb-6">Start by making some simulated trades on the dashboard!</p>
-        <p className="text-sm text-muted-foreground">Once you buy stocks, they will appear here.</p>
+      <div className="space-y-6">
+        <Link href="/" passHref>
+          <Button variant="outline" className="mb-6">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+        <div className="text-center py-16">
+          <TrendingUp className="mx-auto h-16 w-16 text-primary mb-6" />
+          <h2 className="text-3xl font-semibold mb-3">Your Portfolio is Empty</h2>
+          <p className="text-muted-foreground mb-6">Start by making some simulated trades on the dashboard!</p>
+          <p className="text-sm text-muted-foreground">Once you buy stocks, they will appear here.</p>
+        </div>
       </div>
     );
   }
@@ -177,6 +194,13 @@ export function PortfolioPageClient() {
 
   return (
     <div className="space-y-12">
+      <Link href="/" passHref>
+        <Button variant="outline" className="mb-6 shadow-md hover:shadow-primary/20 transition-shadow">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </Link>
+      
       <SectionTitle title="My Portfolio" icon={Briefcase} />
 
       <PortfolioSummaryCards summary={portfolioData.summary} />
@@ -187,10 +211,11 @@ export function PortfolioPageClient() {
           {portfolioData.donutChartData.length > 0 ? (
             <InvestmentBreakdownChart data={portfolioData.donutChartData} totalInvestment={portfolioData.summary.totalInvested} />
           ) : (
-            <Card>
-              <CardContent className="pt-6 flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <Card className="shadow-lg hover:shadow-accent/20 transition-shadow duration-300">
+              <CardContent className="pt-6 flex flex-col items-center justify-center h-[300px] text-muted-foreground">
                 <Info className="h-10 w-10 mb-4 text-accent" />
                 <p>No investments to display in chart.</p>
+                <p className="text-xs">Chart appears once you have holdings.</p>
               </CardContent>
             </Card>
           )}
