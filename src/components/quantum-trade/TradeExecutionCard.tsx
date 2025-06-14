@@ -33,8 +33,8 @@ const tradeExecutionSchema = z.object({
   ticker: z.string().min(1, "Ticker symbol is required.").max(10, "Ticker symbol is too long.").toUpperCase(),
   quantity: z.coerce.number().int().positive("Quantity must be a positive whole number."),
   purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
-  targetPrice: z.coerce.number().positive("Target price must be positive.").optional().nullable(),
-  stopLossPrice: z.coerce.number().positive("Stop-loss price must be positive.").optional().nullable(),
+  targetPrice: z.coerce.number().positive("Target price must be positive.").optional(), // Removed .nullable()
+  stopLossPrice: z.coerce.number().positive("Stop-loss price must be positive.").optional(), // Removed .nullable()
 }).refine(data => {
   if (data.targetPrice && data.purchasePrice && data.targetPrice <= data.purchasePrice) {
     return false;
@@ -77,7 +77,12 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
   const [activePositions, setActivePositions] = useState<ActivePosition[]>(() => {
     if (typeof window !== 'undefined') {
       const savedPositions = localStorage.getItem('quantumTradePortfolio');
-      return savedPositions ? JSON.parse(savedPositions) : [];
+      try {
+        return savedPositions ? JSON.parse(savedPositions) : [];
+      } catch (error) {
+        console.error("Error parsing portfolio from localStorage", error);
+        return [];
+      }
     }
     return [];
   });
@@ -166,7 +171,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         stopLossPrice: tradeMode === 'autopilot' ? values.stopLossPrice : undefined,
         mode: tradeMode,
         purchaseDate: new Date().toISOString(),
-        simulatedVolatilityFactor: tradeMode === 'autopilot' ? Math.random() * 0.5 + 0.05 : 0, // Random factor for autopilot, 0 for manual
+        simulatedVolatilityFactor: tradeMode === 'autopilot' ? Math.random() * 0.5 + 0.05 : 0, 
       };
       setActivePositions(prev => [...prev, newPosition]);
       
@@ -231,10 +236,10 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
   
   useEffect(() => {
     const calculateNewMockPrice = (currentPrice: number, volatilityFactor: number): number => {
-      const baseMaxChange = 0.015; // Max 1.5% base change without extra volatility
-      const volatilityInducedChange = volatilityFactor * 0.08; // Volatility factor can add up to 8% potential swing
+      const baseMaxChange = 0.015; 
+      const volatilityInducedChange = volatilityFactor * 0.08; 
       const maxSwing = baseMaxChange + volatilityInducedChange;
-      const changePercent = (Math.random() - 0.5) * 2 * maxSwing; // Random swing up to maxSwing
+      const changePercent = (Math.random() - 0.5) * 2 * maxSwing; 
       const newPrice = currentPrice * (1 + changePercent);
       return Math.max(0.01, parseFloat(newPrice.toFixed(2)));
     };
@@ -267,22 +272,19 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
           if (pos.mode === 'autopilot') {
             const profitLossRatio = (pos.currentMockPrice - pos.purchasePrice) / pos.purchasePrice;
-
-            // Volatility Check
             const isVolatile = pos.simulatedVolatilityFactor > 0.35;
-            const volatilityEventChance = pos.simulatedVolatilityFactor * 0.1; // Chance increases with factor
+            const volatilityEventChance = pos.simulatedVolatilityFactor * 0.1; 
             
             if (isVolatile && Math.random() < volatilityEventChance) {
-              if (profitLossRatio > 0.01) { // If profit > 1%
+              if (profitLossRatio > 0.01) { 
                  reason = `Market Volatility (Profit Secure at $${pos.currentMockPrice.toFixed(2)})`;
                  sold = true;
-              } else if (pos.simulatedVolatilityFactor > 0.45 && profitLossRatio > -0.05) { // Extreme volatility and loss < 5%
+              } else if (pos.simulatedVolatilityFactor > 0.45 && profitLossRatio > -0.05) { 
                  reason = `Extreme Market Volatility (Risk Mitigation at $${pos.currentMockPrice.toFixed(2)})`;
                  sold = true;
               }
             }
 
-            // Target Price / Stop Loss (if not already sold due to volatility)
             if (!sold && pos.targetPrice && pos.currentMockPrice >= pos.targetPrice) {
               reason = `Target Price $${pos.targetPrice.toFixed(2)} Reached`;
               sold = true;
@@ -298,9 +300,12 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
             stillActivePositions.push(pos);
           }
         }
-        // Persist changes from mock price updates and auto-sells
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('quantumTradePortfolio', JSON.stringify(stillActivePositions));
+        
+        if (prevPositions.length !== stillActivePositions.length || 
+            prevPositions.some((pp, i) => pp.currentMockPrice !== stillActivePositions[i]?.currentMockPrice)) {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('quantumTradePortfolio', JSON.stringify(stillActivePositions));
+            }
         }
         return stillActivePositions;
       });
@@ -514,7 +519,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
                             step="0.01" 
                             placeholder="e.g., 160" 
                             {...field} 
-                            onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                             value={field.value ?? ""}
                           />
                         </FormControl>
@@ -536,7 +541,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
                             step="0.01" 
                             placeholder="e.g., 140" 
                             {...field} 
-                            onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                             value={field.value ?? ""}
                           />
                         </FormControl>
@@ -633,3 +638,4 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
     </Card>
   );
 }
+

@@ -14,8 +14,8 @@ export interface ActivePosition {
   quantity: number;
   purchasePrice: number;
   currentMockPrice: number;
-  targetPrice?: number | null;
-  stopLossPrice?: number | null;
+  targetPrice?: number; // Changed from number | null
+  stopLossPrice?: number; // Changed from number | null
   mode: 'autopilot' | 'manual';
   purchaseDate: string; // ISO string
   simulatedVolatilityFactor: number; // Represents the stock's tendency for price swings (0.0 to 1.0)
@@ -40,3 +40,4 @@ export interface DonutChartData {
   value: number;
   fill: string;
 }
+

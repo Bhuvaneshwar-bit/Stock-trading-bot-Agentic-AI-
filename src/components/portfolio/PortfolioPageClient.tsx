@@ -38,8 +38,9 @@ export function PortfolioPageClient() {
       const savedData = localStorage.getItem('quantumTradePortfolio');
       if (savedData) {
         try {
-          const parsedPositions = JSON.parse(savedData) as ActivePosition[];
-          setRawPositions(parsedPositions);
+          const parsedData = JSON.parse(savedData);
+          // Ensure parsedData is an array before setting
+          setRawPositions(Array.isArray(parsedData) ? parsedData : []);
         } catch (error) {
           console.error("Failed to parse portfolio from localStorage", error);
           setRawPositions([]);
@@ -63,33 +64,66 @@ export function PortfolioPageClient() {
       };
     }
 
-    let totalInvested = 0;
-    let currentPortfolioValue = 0;
+    let totalInvestedGlobal = 0;
+    let currentPortfolioValueGlobal = 0;
 
-    const positions: PortfolioPosition[] = rawPositions.map(pos => {
-      const investedInStock = pos.quantity * pos.purchasePrice;
-      const currentValueForStock = pos.quantity * pos.currentMockPrice;
-      const profitLossForStock = currentValueForStock - investedInStock;
-      const profitLossPercentageForStock = investedInStock === 0 ? 0 : (profitLossForStock / investedInStock) * 100;
+    const positions: PortfolioPosition[] = rawPositions
+      .filter(rawPos => rawPos && typeof rawPos.id === 'string' && typeof rawPos.ticker === 'string') // Filter malformed entries
+      .map(rawPos => {
+        // Sanitize core numeric fields from rawPos (from localStorage)
+        const quantity = typeof rawPos.quantity === 'number' && !isNaN(rawPos.quantity) ? rawPos.quantity : 0;
+        const purchasePrice = typeof rawPos.purchasePrice === 'number' && !isNaN(rawPos.purchasePrice) ? rawPos.purchasePrice : 0;
+        const currentMockPrice = typeof rawPos.currentMockPrice === 'number' && !isNaN(rawPos.currentMockPrice) ? rawPos.currentMockPrice : 0;
+        
+        // Sanitize optional numeric fields (targetPrice, stopLossPrice)
+        let pTargetPrice: number | undefined = undefined;
+        if (rawPos.targetPrice != null && typeof rawPos.targetPrice === 'number' && !isNaN(rawPos.targetPrice)) {
+          pTargetPrice = rawPos.targetPrice;
+        }
 
-      totalInvested += investedInStock;
-      currentPortfolioValue += currentValueForStock;
+        let pStopLossPrice: number | undefined = undefined;
+        if (rawPos.stopLossPrice != null && typeof rawPos.stopLossPrice === 'number' && !isNaN(rawPos.stopLossPrice)) {
+          pStopLossPrice = rawPos.stopLossPrice;
+        }
+        
+        // Sanitize other fields
+        const mode = rawPos.mode === 'autopilot' || rawPos.mode === 'manual' ? rawPos.mode : 'manual';
+        const purchaseDate = typeof rawPos.purchaseDate === 'string' ? rawPos.purchaseDate : new Date(0).toISOString();
+        const simulatedVolatilityFactor = typeof rawPos.simulatedVolatilityFactor === 'number' && !isNaN(rawPos.simulatedVolatilityFactor) ? rawPos.simulatedVolatilityFactor : 0;
 
-      return {
-        ...pos,
-        totalInvested: investedInStock,
-        currentValue: currentValueForStock,
-        profitLoss: profitLossForStock,
-        profitLossPercentage: profitLossPercentageForStock,
-      };
-    });
+        // Calculated fields
+        const investedInStock = quantity * purchasePrice;
+        const currentValueForStock = quantity * currentMockPrice;
+        const profitLossForStock = currentValueForStock - investedInStock;
+        const profitLossPercentageForStock = investedInStock === 0 ? 0 : (profitLossForStock / investedInStock) * 100;
 
-    const overallProfitLoss = currentPortfolioValue - totalInvested;
-    const overallProfitLossPercentage = totalInvested === 0 ? 0 : (overallProfitLoss / totalInvested) * 100;
+        totalInvestedGlobal += investedInStock;
+        currentPortfolioValueGlobal += currentValueForStock;
+
+        return {
+          id: rawPos.id,
+          ticker: rawPos.ticker,
+          quantity,
+          purchasePrice,
+          currentMockPrice,
+          targetPrice: pTargetPrice,
+          stopLossPrice: pStopLossPrice,
+          mode,
+          purchaseDate,
+          simulatedVolatilityFactor,
+          totalInvested: investedInStock,
+          currentValue: currentValueForStock,
+          profitLoss: profitLossForStock,
+          profitLossPercentage: profitLossPercentageForStock,
+        };
+      });
+
+    const overallProfitLoss = currentPortfolioValueGlobal - totalInvestedGlobal;
+    const overallProfitLossPercentage = totalInvestedGlobal === 0 ? 0 : (overallProfitLoss / totalInvestedGlobal) * 100;
 
     const summary: PortfolioSummary = {
-      currentPortfolioValue,
-      totalInvested,
+      currentPortfolioValue: currentPortfolioValueGlobal,
+      totalInvested: totalInvestedGlobal,
       overallProfitLoss,
       overallProfitLossPercentage,
     };
@@ -114,15 +148,15 @@ export function PortfolioPageClient() {
             ticker: p.ticker,
             quantity: p.quantity,
             purchasePrice: p.purchasePrice,
-            currentPrice: p.currentMockPrice, // Use current mock price for prediction base
+            currentPrice: p.currentMockPrice, 
             purchaseDate: p.purchaseDate,
           }));
 
           if (aiInputPositions.length > 0) {
-            const prediction = await predictPortfolioValue({ positions: aiInputPositions, days: 10 });
-            setAiPrediction(prediction);
+            const predictionResult = await predictPortfolioValue({ positions: aiInputPositions, days: 10 });
+            setAiPrediction(predictionResult);
           } else {
-            setAiPrediction(null); // No positions to predict
+            setAiPrediction(null); 
           }
         } catch (error) {
           console.error("Failed to get AI portfolio prediction:", error);
@@ -134,11 +168,12 @@ export function PortfolioPageClient() {
       };
       fetchPrediction();
     } else if (portfolioData.positions.length === 0) {
-        setAiPrediction(null); // Clear prediction if portfolio becomes empty
+        setAiPrediction(null); 
         setIsPredicting(false);
         setPredictionError(null);
     }
-  }, [portfolioData.positions, aiPrediction, isPredicting]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [portfolioData.positions, isPredicting]); // Removed aiPrediction from deps to avoid re-fetching if it's already set
 
 
   if (isLoadingPositions) {
@@ -236,3 +271,4 @@ export function PortfolioPageClient() {
     </div>
   );
 }
+
