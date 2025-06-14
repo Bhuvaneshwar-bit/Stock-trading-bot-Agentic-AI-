@@ -141,7 +141,7 @@ export function TradeExecutionCard() {
         ticker: values.ticker.toUpperCase(),
         quantity: values.quantity,
         purchasePrice: values.purchasePrice,
-        currentMockPrice: values.purchasePrice,
+        currentMockPrice: values.purchasePrice, // Start mock price at purchase price
         targetPrice: values.targetPrice,
         stopLossPrice: values.stopLossPrice,
       };
@@ -151,24 +151,39 @@ export function TradeExecutionCard() {
         description: `Bought ${values.quantity} shares at $${values.purchasePrice.toFixed(2)}. ${newPosition.targetPrice ? `TP: $${newPosition.targetPrice.toFixed(2)}.` : ''} ${newPosition.stopLossPrice ? `SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
       });
     } else { // SELL
+      const tickerToSell = values.ticker.toUpperCase();
+      const quantityToSell = values.quantity;
+      
       setActivePositions(prev => {
-        const existingPositionIndex = prev.findIndex(p => p.ticker === values.ticker.toUpperCase());
+        const existingPositionIndex = prev.findIndex(p => p.ticker === tickerToSell);
         if (existingPositionIndex > -1) {
           const existingPosition = prev[existingPositionIndex];
-          if (existingPosition.quantity > values.quantity) {
-            const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - values.quantity };
+          if (existingPosition.quantity > quantityToSell) {
+            // Sell partial quantity
+            const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - quantityToSell };
             const newPositions = [...prev];
             newPositions[existingPositionIndex] = updatedPosition;
+             toast({
+                title: `Simulated SELL: ${tickerToSell}`,
+                description: `Sold ${quantityToSell} of ${existingPosition.quantity} shares.`,
+             });
             return newPositions;
           } else {
-            return prev.filter(p => p.ticker !== values.ticker.toUpperCase());
+            // Sell all or more than available (sell all)
+             toast({
+                title: `Simulated SELL: ${tickerToSell}`,
+                description: `Sold all ${existingPosition.quantity} shares.`,
+             });
+            return prev.filter(p => p.ticker !== tickerToSell);
           }
+        } else {
+          toast({
+            variant: "destructive",
+            title: `Sell Failed: ${tickerToSell}`,
+            description: `No active position found for ${tickerToSell}.`,
+          });
         }
         return prev;
-      });
-      toast({
-        title: `Simulated SELL: ${values.ticker.toUpperCase()}`,
-        description: `Sold ${values.quantity} shares.`,
       });
     }
 
@@ -199,8 +214,8 @@ export function TradeExecutionCard() {
         toast({
           title: `AUTO-SELL (Simulated): ${position.ticker}`,
           description: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`,
-          variant: "default",
-          duration: 7000,
+          variant: "default", // Using default, but could be another variant like "success" if available
+          duration: 7000, // Longer duration for important auto-sell notifications
         });
         return true; // Indicates position should be removed
       }
@@ -226,7 +241,7 @@ export function TradeExecutionCard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [toast]);
+  }, [toast]); // Added toast to dependency array as it's used in the effect
 
 
   return (
@@ -384,7 +399,7 @@ export function TradeExecutionCard() {
                     <FormItem>
                       <FormLabel className="flex items-center"><DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />Purchase Price (for Buy)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 150.75" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g., 150.75" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -398,7 +413,7 @@ export function TradeExecutionCard() {
                     <FormItem>
                       <FormLabel className="flex items-center"><TrendingUp className="h-4 w-4 mr-2 text-muted-foreground" />Target Price (Optional)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 160" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g., 160" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -411,7 +426,7 @@ export function TradeExecutionCard() {
                     <FormItem>
                       <FormLabel className="flex items-center"><TrendingDown className="h-4 w-4 mr-2 text-muted-foreground" />Stop-Loss Price (Optional)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 140" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g., 140" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -422,7 +437,7 @@ export function TradeExecutionCard() {
                 <Button 
                   type="button" 
                   onClick={tradeExecutionForm.handleSubmit(values => onExecuteTrade(values, 'BUY'))} 
-                  disabled={isExecutingTrade} 
+                  disabled={isExecutingTrade || !tradeExecutionForm.formState.isValid} 
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                 >
                   {isExecutingTrade ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrendingUp className="mr-2 h-4 w-4" />}
@@ -431,7 +446,7 @@ export function TradeExecutionCard() {
                 <Button 
                   type="button" 
                   onClick={tradeExecutionForm.handleSubmit(values => onExecuteTrade(values, 'SELL'))} 
-                  disabled={isExecutingTrade} 
+                  disabled={isExecutingTrade || !tradeExecutionForm.formState.isValid} 
                   variant="destructive" 
                   className="w-full"
                 >
@@ -499,4 +514,6 @@ export function TradeExecutionCard() {
     </Card>
   );
 }
+    
+
     
