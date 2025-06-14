@@ -6,19 +6,21 @@ import { Header } from '@/components/layout/Header';
 import { StockAnalysisCard } from '@/components/quantum-trade/StockAnalysisCard';
 import { NewsSummarizerCard } from '@/components/quantum-trade/NewsSummarizerCard';
 import { TradeExecutionCard } from '@/components/quantum-trade/TradeExecutionCard';
-import { NotificationsPanel } from '@/components/quantum-trade/NotificationsPanel';
+import { NotificationsPanel, type Notification } from '@/components/quantum-trade/NotificationsPanel';
 import { SectionTitle } from '@/components/quantum-trade/SectionTitle';
 import { MarketIndicatorsChart } from '@/components/quantum-trade/MarketIndicatorsChart';
 import { WelcomeBanner } from '@/components/quantum-trade/WelcomeBanner';
 import { SplashScreen } from '@/components/quantum-trade/SplashScreen'; 
 import { BrainCircuit, Newspaper, CandlestickChart, LineChart } from 'lucide-react';
 
+const MAX_NOTIFICATIONS = 10;
+
 export default function Home() {
   const [selectedStockTicker, setSelectedStockTicker] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    // MAX_INTRO_ANIMATION_END_TIME (1800ms) + VIEW_DURATION_AFTER_ALL_FADE_IN (1300ms) + SPLASH_FADE_OUT_DURATION (1000ms) = 4100ms
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 4100); 
@@ -28,6 +30,20 @@ export default function Home() {
   const handleStockSelected = (ticker: string | null) => {
     setSelectedStockTicker(ticker);
   };
+
+  const addNotification = (notificationDetails: Omit<Notification, 'id' | 'time' | 'read'>) => {
+    setNotifications(prevNotifications => {
+      const newNotification: Notification = {
+        ...notificationDetails,
+        id: Date.now().toString() + Math.random().toString(36).substring(2,9), // more unique id
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        read: false,
+      };
+      const updatedNotifications = [newNotification, ...prevNotifications];
+      return updatedNotifications.slice(0, MAX_NOTIFICATIONS);
+    });
+  };
+
 
   if (showSplash) {
     return <SplashScreen />;
@@ -61,10 +77,10 @@ export default function Home() {
           <SectionTitle title="AI Trading Desk" icon={CandlestickChart} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              <TradeExecutionCard />
+              <TradeExecutionCard onAddNotification={addNotification} />
             </div>
             <div className="lg:col-span-1">
-               <NotificationsPanel />
+               <NotificationsPanel notifications={notifications} />
             </div>
           </div>
         </section>

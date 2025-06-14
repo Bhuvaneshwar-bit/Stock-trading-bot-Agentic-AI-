@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Bell, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface Notification {
+export interface Notification {
   id: string;
   type: 'alert' | 'trade' | 'info' | 'update';
   title: string;
@@ -13,15 +14,6 @@ interface Notification {
   time: string;
   read?: boolean;
 }
-
-const mockNotifications: Notification[] = [
-  { id: '1', type: 'alert', title: 'High Market Volatility Alert', message: 'NASDAQ Composite shows high volatility. Consider adjusting strategies.', time: '2m ago', read: false },
-  { id: '2', type: 'trade', title: 'Trade Executed: BUY AAPL', message: 'Successfully bought 10 shares of AAPL at $175.30.', time: '5m ago', read: false },
-  { id: '3', type: 'info', title: 'Portfolio Update', message: 'Your portfolio value increased by 1.2% today.', time: '15m ago', read: true },
-  { id: '4', type: 'update', title: 'AI Model Updated', message: 'The trading analysis model has been updated with new data.', time: '1h ago', read: true },
-  { id: '5', type: 'alert', title: 'Price Drop: TSLA', message: 'TSLA dropped by 5% in the last hour. Review position.', time: '2h ago', read: false },
-  { id: '6', type: 'trade', title: 'Trade Executed: SELL MSFT', message: 'Successfully sold 20 shares of MSFT at $450.10.', time: '3h ago', read: true },
-];
 
 const getIconForType = (type: Notification['type']) => {
   switch (type) {
@@ -38,7 +30,11 @@ const getIconForType = (type: Notification['type']) => {
   }
 };
 
-export function NotificationsPanel() {
+interface NotificationsPanelProps {
+  notifications: Notification[];
+}
+
+export function NotificationsPanel({ notifications }: NotificationsPanelProps) {
   return (
     <Card className="w-full shadow-xl hover:shadow-accent/20 transition-shadow duration-300">
       <CardHeader>
@@ -51,7 +47,7 @@ export function NotificationsPanel() {
       <CardContent>
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
-            {mockNotifications.map((notification) => (
+            {notifications.map((notification) => (
               <div
                 key={notification.id}
                 className={`p-4 rounded-lg border flex items-start space-x-3 transition-all ${
@@ -69,7 +65,7 @@ export function NotificationsPanel() {
                 </div>
               </div>
             ))}
-             {mockNotifications.length === 0 && (
+             {notifications.length === 0 && (
               <p className="text-muted-foreground text-center py-8">No new notifications.</p>
             )}
           </div>

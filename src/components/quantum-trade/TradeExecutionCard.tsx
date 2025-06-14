@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { generateTradeRecommendations, type GenerateTradeRecommendationsOutput } from '@/ai/flows/generate-trade-recommendations';
 import { useToast } from "@/hooks/use-toast";
+import type { Notification } from './NotificationsPanel'; // Import Notification type
 
 const recommendationFormSchema = z.object({
   marketData: z.string().min(10, "Market data must be at least 10 characters."),
@@ -71,7 +72,11 @@ interface ActivePosition {
   mode: 'autopilot' | 'manual';
 }
 
-export function TradeExecutionCard() {
+interface TradeExecutionCardProps {
+  onAddNotification: (notificationDetails: Omit<Notification, 'id' | 'time' | 'read'>) => void;
+}
+
+export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProps) {
   const [recommendations, setRecommendations] = useState<GenerateTradeRecommendationsOutput | null>(null);
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -107,7 +112,6 @@ export function TradeExecutionCard() {
     if (tradeMode === 'manual') {
       tradeExecutionForm.setValue('targetPrice', undefined);
       tradeExecutionForm.setValue('stopLossPrice', undefined);
-      // Clear errors for these fields when switching to manual
       tradeExecutionForm.clearErrors('targetPrice');
       tradeExecutionForm.clearErrors('stopLossPrice');
     }
@@ -146,7 +150,7 @@ export function TradeExecutionCard() {
 
   async function onExecuteTrade(values: z.infer<typeof tradeExecutionSchema>, action: 'BUY' | 'SELL') {
     setIsExecutingTrade(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
 
     if (action === 'BUY') {
       const newPosition: ActivePosition = {
@@ -160,6 +164,14 @@ export function TradeExecutionCard() {
         mode: tradeMode,
       };
       setActivePositions(prev => [...prev, newPosition]);
+      
+      onAddNotification({
+        type: 'trade',
+        title: `BUY (${newPosition.mode}): ${newPosition.ticker}`,
+        message: `Bought ${newPosition.quantity} shares at $${newPosition.purchasePrice.toFixed(2)}.` +
+                 `${newPosition.targetPrice ? ` TP: $${newPosition.targetPrice.toFixed(2)}.` : ''}` +
+                 `${newPosition.stopLossPrice ? ` SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
+      });
       toast({
         title: `Simulated BUY (${tradeMode}): ${values.ticker.toUpperCase()}`,
         description: `Bought ${values.quantity} shares at $${values.purchasePrice.toFixed(2)}. ${newPosition.targetPrice ? `TP: $${newPosition.targetPrice.toFixed(2)}.` : ''} ${newPosition.stopLossPrice ? `SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
@@ -167,26 +179,37 @@ export function TradeExecutionCard() {
     } else { // SELL
       const tickerToSell = values.ticker.toUpperCase();
       const quantityToSell = values.quantity;
+      let soldSuccessfully = false;
       
       setActivePositions(prev => {
         const existingPositionIndex = prev.findIndex(p => p.ticker === tickerToSell);
         if (existingPositionIndex > -1) {
           const existingPosition = prev[existingPositionIndex];
-          if (existingPosition.quantity > quantityToSell) {
-            const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - quantityToSell };
+          const sellQuantity = Math.min(existingPosition.quantity, quantityToSell);
+          const soldAll = existingPosition.quantity <= quantityToSell;
+          
+          const sellMessage = soldAll ?
+            `Sold all ${existingPosition.quantity} shares of ${tickerToSell} at current market price.` :
+            `Sold ${sellQuantity} of ${existingPosition.quantity} shares of ${tickerToSell} at current market price.`;
+
+          onAddNotification({
+            type: 'trade',
+            title: `SELL (manual): ${tickerToSell}`,
+            message: sellMessage,
+          });
+          toast({
+             title: `Simulated SELL: ${tickerToSell}`,
+             description: soldAll ? `Sold all ${existingPosition.quantity} shares.` : `Sold ${sellQuantity} of ${existingPosition.quantity} shares.`,
+          });
+          soldSuccessfully = true;
+
+          if (soldAll) {
+            return prev.filter(p => p.ticker !== tickerToSell);
+          } else {
+            const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - sellQuantity };
             const newPositions = [...prev];
             newPositions[existingPositionIndex] = updatedPosition;
-             toast({
-                title: `Simulated SELL: ${tickerToSell}`,
-                description: `Sold ${quantityToSell} of ${existingPosition.quantity} shares.`,
-             });
             return newPositions;
-          } else {
-             toast({
-                title: `Simulated SELL: ${tickerToSell}`,
-                description: `Sold all ${existingPosition.quantity} shares.`,
-             });
-            return prev.filter(p => p.ticker !== tickerToSell);
           }
         } else {
           toast({
@@ -194,8 +217,9 @@ export function TradeExecutionCard() {
             title: `Sell Failed: ${tickerToSell}`,
             description: `No active position found for ${tickerToSell}.`,
           });
+          soldSuccessfully = false; // Explicitly set
+          return prev; // No change to positions
         }
-        return prev;
       });
     }
 
@@ -210,46 +234,49 @@ export function TradeExecutionCard() {
       return Math.max(0.01, parseFloat(newPrice.toFixed(2)));
     };
 
-    const checkAndExecuteConditionalSell = (position: ActivePosition): boolean => {
-      if (position.mode === 'manual') {
-        return false; // Do not auto-sell manual positions
-      }
-
-      let sold = false;
-      let reason = "";
-
-      if (position.targetPrice && position.currentMockPrice >= position.targetPrice) {
-        reason = `Target Price $${position.targetPrice.toFixed(2)} Reached`;
-        sold = true;
-      } else if (position.stopLossPrice && position.currentMockPrice <= position.stopLossPrice) {
-        reason = `Stop-Loss $${position.stopLossPrice.toFixed(2)} Triggered`;
-        sold = true;
-      }
-
-      if (sold) {
-        toast({
-          title: `AUTO-SELL (Simulated - ${position.mode}): ${position.ticker}`,
-          description: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`,
-          variant: "default",
-          duration: 7000,
-        });
-        return true;
-      }
-      return false;
+    const handleAutoSellNotification = (position: ActivePosition, reason: string) => {
+      onAddNotification({
+        type: 'trade',
+        title: `AUTO-SELL (${position.mode}): ${position.ticker}`,
+        message: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`
+      });
+      toast({
+        title: `AUTO-SELL (Simulated - ${position.mode}): ${position.ticker}`,
+        description: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`,
+        variant: "default",
+        duration: 7000,
+      });
     };
 
     intervalRef.current = setInterval(() => {
-      setActivePositions(prevPositions => 
-        prevPositions
-          .map(pos => ({
-            ...pos,
-            currentMockPrice: calculateNewMockPrice(pos.currentMockPrice),
-          }))
-          .filter(pos => {
-            const shouldBeRemoved = checkAndExecuteConditionalSell(pos);
-            return !shouldBeRemoved;
-          })
-      );
+      setActivePositions(prevPositions => {
+        const updatedPositions = prevPositions.map(pos => ({
+          ...pos,
+          currentMockPrice: calculateNewMockPrice(pos.currentMockPrice),
+        }));
+
+        const stillActivePositions: ActivePosition[] = [];
+        for (const pos of updatedPositions) {
+          let sold = false;
+          let reason = "";
+          if (pos.mode === 'autopilot') {
+            if (pos.targetPrice && pos.currentMockPrice >= pos.targetPrice) {
+              reason = `Target Price $${pos.targetPrice.toFixed(2)} Reached`;
+              sold = true;
+            } else if (pos.stopLossPrice && pos.currentMockPrice <= pos.stopLossPrice) {
+              reason = `Stop-Loss $${pos.stopLossPrice.toFixed(2)} Triggered`;
+              sold = true;
+            }
+          }
+
+          if (sold) {
+            handleAutoSellNotification(pos, reason);
+          } else {
+            stillActivePositions.push(pos);
+          }
+        }
+        return stillActivePositions;
+      });
     }, 3000);
 
     return () => {
@@ -257,7 +284,7 @@ export function TradeExecutionCard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [toast]);
+  }, [onAddNotification, toast]);
 
 
   return (
@@ -385,7 +412,7 @@ export function TradeExecutionCard() {
               </div>
           </div>
           <RadioGroup 
-            defaultValue="manual" 
+            value={tradeMode} 
             onValueChange={(value: 'autopilot' | 'manual') => setTradeMode(value)} 
             className="flex space-x-6 mb-6"
           >
@@ -463,6 +490,7 @@ export function TradeExecutionCard() {
                             placeholder="e.g., 160" 
                             {...field} 
                             onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+                            value={field.value ?? ""}
                           />
                         </FormControl>
                         <FormMessage />
@@ -484,6 +512,7 @@ export function TradeExecutionCard() {
                             placeholder="e.g., 140" 
                             {...field} 
                             onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                            value={field.value ?? ""}
                           />
                         </FormControl>
                         <FormMessage />
@@ -579,4 +608,3 @@ export function TradeExecutionCard() {
     </Card>
   );
 }
-    
