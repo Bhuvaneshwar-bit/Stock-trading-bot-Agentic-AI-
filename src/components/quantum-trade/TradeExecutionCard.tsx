@@ -161,11 +161,12 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         ticker: values.ticker.toUpperCase(),
         quantity: values.quantity,
         purchasePrice: values.purchasePrice,
-        currentMockPrice: values.purchasePrice, // Initial mock price is purchase price
+        currentMockPrice: values.purchasePrice, 
         targetPrice: tradeMode === 'autopilot' ? values.targetPrice : undefined,
         stopLossPrice: tradeMode === 'autopilot' ? values.stopLossPrice : undefined,
         mode: tradeMode,
         purchaseDate: new Date().toISOString(),
+        simulatedVolatilityFactor: tradeMode === 'autopilot' ? Math.random() * 0.5 + 0.05 : 0, // Random factor for autopilot, 0 for manual
       };
       setActivePositions(prev => [...prev, newPosition]);
       
@@ -229,8 +230,11 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
   }
   
   useEffect(() => {
-    const calculateNewMockPrice = (currentPrice: number): number => {
-      const changePercent = (Math.random() - 0.49) * 0.03; // Simulate small daily fluctuation
+    const calculateNewMockPrice = (currentPrice: number, volatilityFactor: number): number => {
+      const baseMaxChange = 0.015; // Max 1.5% base change without extra volatility
+      const volatilityInducedChange = volatilityFactor * 0.08; // Volatility factor can add up to 8% potential swing
+      const maxSwing = baseMaxChange + volatilityInducedChange;
+      const changePercent = (Math.random() - 0.5) * 2 * maxSwing; // Random swing up to maxSwing
       const newPrice = currentPrice * (1 + changePercent);
       return Math.max(0.01, parseFloat(newPrice.toFixed(2)));
     };
@@ -253,18 +257,36 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
       setActivePositions(prevPositions => {
         const updatedPositions = prevPositions.map(pos => ({
           ...pos,
-          currentMockPrice: calculateNewMockPrice(pos.currentMockPrice),
+          currentMockPrice: calculateNewMockPrice(pos.currentMockPrice, pos.simulatedVolatilityFactor),
         }));
 
         const stillActivePositions: ActivePosition[] = [];
         for (const pos of updatedPositions) {
           let sold = false;
           let reason = "";
+
           if (pos.mode === 'autopilot') {
-            if (pos.targetPrice && pos.currentMockPrice >= pos.targetPrice) {
+            const profitLossRatio = (pos.currentMockPrice - pos.purchasePrice) / pos.purchasePrice;
+
+            // Volatility Check
+            const isVolatile = pos.simulatedVolatilityFactor > 0.35;
+            const volatilityEventChance = pos.simulatedVolatilityFactor * 0.1; // Chance increases with factor
+            
+            if (isVolatile && Math.random() < volatilityEventChance) {
+              if (profitLossRatio > 0.01) { // If profit > 1%
+                 reason = `Market Volatility (Profit Secure at $${pos.currentMockPrice.toFixed(2)})`;
+                 sold = true;
+              } else if (pos.simulatedVolatilityFactor > 0.45 && profitLossRatio > -0.05) { // Extreme volatility and loss < 5%
+                 reason = `Extreme Market Volatility (Risk Mitigation at $${pos.currentMockPrice.toFixed(2)})`;
+                 sold = true;
+              }
+            }
+
+            // Target Price / Stop Loss (if not already sold due to volatility)
+            if (!sold && pos.targetPrice && pos.currentMockPrice >= pos.targetPrice) {
               reason = `Target Price $${pos.targetPrice.toFixed(2)} Reached`;
               sold = true;
-            } else if (pos.stopLossPrice && pos.currentMockPrice <= pos.stopLossPrice) {
+            } else if (!sold && pos.stopLossPrice && pos.currentMockPrice <= pos.stopLossPrice) {
               reason = `Stop-Loss $${pos.stopLossPrice.toFixed(2)} Triggered`;
               sold = true;
             }
@@ -282,7 +304,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         }
         return stillActivePositions;
       });
-    }, 3000); // Update mock prices every 3 seconds
+    }, 3000); 
 
     return () => {
       if (intervalRef.current) {

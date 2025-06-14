@@ -18,6 +18,7 @@ export interface ActivePosition {
   stopLossPrice?: number | null;
   mode: 'autopilot' | 'manual';
   purchaseDate: string; // ISO string
+  simulatedVolatilityFactor: number; // Represents the stock's tendency for price swings (0.0 to 1.0)
 }
 
 export interface PortfolioPosition extends ActivePosition {
