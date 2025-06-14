@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Bot, ShieldCheck, LineChart, Briefcase, DollarSign, ArrowRightLeft, Loader2, Tag, Hash, TrendingUp, TrendingDown, Wallet, ListOrdered, Activity } from 'lucide-react';
+import { Bot, ShieldCheck, LineChart, Briefcase, DollarSign, ArrowRightLeft, Loader2, Tag, Hash, TrendingUp, TrendingDown, Wallet, ListOrdered, Activity, User, Settings } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { generateTradeRecommendations, type GenerateTradeRecommendationsOutput } from '@/ai/flows/generate-trade-recommendations';
 import { useToast } from "@/hooks/use-toast";
 
@@ -66,6 +68,7 @@ interface ActivePosition {
   currentMockPrice: number;
   targetPrice?: number | null;
   stopLossPrice?: number | null;
+  mode: 'autopilot' | 'manual';
 }
 
 export function TradeExecutionCard() {
@@ -78,6 +81,7 @@ export function TradeExecutionCard() {
 
   const [activePositions, setActivePositions] = useState<ActivePosition[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [tradeMode, setTradeMode] = useState<'autopilot' | 'manual'>('manual');
 
   const recommendationForm = useForm<z.infer<typeof recommendationFormSchema>>({
     resolver: zodResolver(recommendationFormSchema),
@@ -98,6 +102,13 @@ export function TradeExecutionCard() {
       stopLossPrice: undefined,
     },
   });
+
+  useEffect(() => {
+    if (tradeMode === 'manual') {
+      tradeExecutionForm.setValue('targetPrice', undefined);
+      tradeExecutionForm.setValue('stopLossPrice', undefined);
+    }
+  }, [tradeMode, tradeExecutionForm]);
 
   async function onGenerateRecommendations(values: z.infer<typeof recommendationFormSchema>) {
     setIsGeneratingRecommendations(true);
@@ -132,8 +143,7 @@ export function TradeExecutionCard() {
 
   async function onExecuteTrade(values: z.infer<typeof tradeExecutionSchema>, action: 'BUY' | 'SELL') {
     setIsExecutingTrade(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     if (action === 'BUY') {
       const newPosition: ActivePosition = {
@@ -141,13 +151,14 @@ export function TradeExecutionCard() {
         ticker: values.ticker.toUpperCase(),
         quantity: values.quantity,
         purchasePrice: values.purchasePrice,
-        currentMockPrice: values.purchasePrice, // Start mock price at purchase price
-        targetPrice: values.targetPrice,
-        stopLossPrice: values.stopLossPrice,
+        currentMockPrice: values.purchasePrice,
+        targetPrice: tradeMode === 'autopilot' ? values.targetPrice : undefined,
+        stopLossPrice: tradeMode === 'autopilot' ? values.stopLossPrice : undefined,
+        mode: tradeMode,
       };
       setActivePositions(prev => [...prev, newPosition]);
       toast({
-        title: `Simulated BUY: ${values.ticker.toUpperCase()}`,
+        title: `Simulated BUY (${tradeMode}): ${values.ticker.toUpperCase()}`,
         description: `Bought ${values.quantity} shares at $${values.purchasePrice.toFixed(2)}. ${newPosition.targetPrice ? `TP: $${newPosition.targetPrice.toFixed(2)}.` : ''} ${newPosition.stopLossPrice ? `SL: $${newPosition.stopLossPrice.toFixed(2)}.` : ''}`,
       });
     } else { // SELL
@@ -159,7 +170,6 @@ export function TradeExecutionCard() {
         if (existingPositionIndex > -1) {
           const existingPosition = prev[existingPositionIndex];
           if (existingPosition.quantity > quantityToSell) {
-            // Sell partial quantity
             const updatedPosition = { ...existingPosition, quantity: existingPosition.quantity - quantityToSell };
             const newPositions = [...prev];
             newPositions[existingPositionIndex] = updatedPosition;
@@ -169,7 +179,6 @@ export function TradeExecutionCard() {
              });
             return newPositions;
           } else {
-            // Sell all or more than available (sell all)
              toast({
                 title: `Simulated SELL: ${tickerToSell}`,
                 description: `Sold all ${existingPosition.quantity} shares.`,
@@ -193,12 +202,16 @@ export function TradeExecutionCard() {
   
   useEffect(() => {
     const calculateNewMockPrice = (currentPrice: number): number => {
-      const changePercent = (Math.random() - 0.49) * 0.03; // Max 1.5% change up or down
+      const changePercent = (Math.random() - 0.49) * 0.03;
       const newPrice = currentPrice * (1 + changePercent);
-      return Math.max(0.01, parseFloat(newPrice.toFixed(2))); // Ensure price is positive and 2 decimal places
+      return Math.max(0.01, parseFloat(newPrice.toFixed(2)));
     };
 
     const checkAndExecuteConditionalSell = (position: ActivePosition): boolean => {
+      if (position.mode === 'manual') {
+        return false; // Do not auto-sell manual positions
+      }
+
       let sold = false;
       let reason = "";
 
@@ -212,14 +225,14 @@ export function TradeExecutionCard() {
 
       if (sold) {
         toast({
-          title: `AUTO-SELL (Simulated): ${position.ticker}`,
+          title: `AUTO-SELL (Simulated - ${position.mode}): ${position.ticker}`,
           description: `Sold ${position.quantity} shares at $${position.currentMockPrice.toFixed(2)}. Reason: ${reason}.`,
-          variant: "default", // Using default, but could be another variant like "success" if available
-          duration: 7000, // Longer duration for important auto-sell notifications
+          variant: "default",
+          duration: 7000,
         });
-        return true; // Indicates position should be removed
+        return true;
       }
-      return false; // Position remains
+      return false;
     };
 
     intervalRef.current = setInterval(() => {
@@ -231,17 +244,17 @@ export function TradeExecutionCard() {
           }))
           .filter(pos => {
             const shouldBeRemoved = checkAndExecuteConditionalSell(pos);
-            return !shouldBeRemoved; // Keep if not sold
+            return !shouldBeRemoved;
           })
       );
-    }, 3000); // Update prices every 3 seconds
+    }, 3000);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [toast]); // Added toast to dependency array as it's used in the effect
+  }, [toast]);
 
 
   return (
@@ -251,7 +264,7 @@ export function TradeExecutionCard() {
           <Bot className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
           <CardTitle className="text-2xl font-headline">AI Trading Desk</CardTitle>
         </div>
-        <CardDescription>Configure parameters for AI recommendations or execute trades directly.</CardDescription>
+        <CardDescription>Configure parameters for AI recommendations or execute trades.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         {/* Recommendation Generation Form */}
@@ -361,7 +374,32 @@ export function TradeExecutionCard() {
 
         {/* Trade Execution Form */}
         <section>
-          <h3 className="text-lg font-semibold font-headline text-primary mb-3">Execute Trade (Simulated)</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold font-headline text-primary">Execute Trade (Simulated)</h3>
+             <div className="flex items-center space-x-2">
+                <Settings className="h-5 w-5 text-muted-foreground" />
+                <Label className="text-sm font-medium">Trade Mode:</Label>
+              </div>
+          </div>
+          <RadioGroup 
+            defaultValue="manual" 
+            onValueChange={(value: 'autopilot' | 'manual') => setTradeMode(value)} 
+            className="flex space-x-6 mb-6"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="manual" id="manualMode" />
+              <Label htmlFor="manualMode" className="flex items-center cursor-pointer">
+                <User className="h-4 w-4 mr-2 text-accent" /> Manual
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="autopilot" id="autopilotMode" />
+              <Label htmlFor="autopilotMode" className="flex items-center cursor-pointer">
+                <Bot className="h-4 w-4 mr-2 text-accent" /> Autopilot
+              </Label>
+            </div>
+          </RadioGroup>
+
           <Form {...tradeExecutionForm}>
             <form className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -411,11 +449,20 @@ export function TradeExecutionCard() {
                   name="targetPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><TrendingUp className="h-4 w-4 mr-2 text-muted-foreground" />Target Price (Optional)</FormLabel>
+                      <FormLabel className={`flex items-center ${tradeMode === 'manual' ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                        <TrendingUp className="h-4 w-4 mr-2" />Target Price (Autopilot)
+                      </FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="e.g., 160" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="e.g., 160" 
+                          {...field} 
+                          onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+                          disabled={tradeMode === 'manual'}
+                        />
                       </FormControl>
-                      <FormMessage />
+                      {tradeMode === 'autopilot' && <FormMessage />}
                     </FormItem>
                   )}
                 />
@@ -424,11 +471,20 @@ export function TradeExecutionCard() {
                   name="stopLossPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><TrendingDown className="h-4 w-4 mr-2 text-muted-foreground" />Stop-Loss Price (Optional)</FormLabel>
+                      <FormLabel className={`flex items-center ${tradeMode === 'manual' ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                        <TrendingDown className="h-4 w-4 mr-2" />Stop-Loss Price (Autopilot)
+                        </FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="e.g., 140" {...field} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="e.g., 140" 
+                          {...field} 
+                          onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                          disabled={tradeMode === 'manual'}
+                        />
                       </FormControl>
-                      <FormMessage />
+                      {tradeMode === 'autopilot' && <FormMessage />}
                     </FormItem>
                   )}
                 />
@@ -472,6 +528,7 @@ export function TradeExecutionCard() {
                     <TableHeader>
                         <TableRow>
                         <TableHead>Ticker</TableHead>
+                        <TableHead className="text-center">Mode</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Purch. $</TableHead>
                         <TableHead className="text-right">Mock $</TableHead>
@@ -483,6 +540,11 @@ export function TradeExecutionCard() {
                         {activePositions.map((pos) => (
                         <TableRow key={pos.id}>
                             <TableCell className="font-medium">{pos.ticker}</TableCell>
+                            <TableCell className="text-center">
+                                {pos.mode === 'autopilot' ? 
+                                  <Bot className="h-4 w-4 mx-auto text-accent" title="Autopilot"/> : 
+                                  <User className="h-4 w-4 mx-auto text-muted-foreground" title="Manual"/>}
+                            </TableCell>
                             <TableCell className="text-right">{pos.quantity}</TableCell>
                             <TableCell className="text-right">${pos.purchasePrice.toFixed(2)}</TableCell>
                             <TableCell className="text-right font-semibold text-primary/90">
@@ -499,7 +561,7 @@ export function TradeExecutionCard() {
                     </Table>
                 </CardContent>
                 </Card>
-                <p className="text-xs text-muted-foreground mt-2">Mock prices update automatically to simulate market activity and trigger conditional orders.</p>
+                <p className="text-xs text-muted-foreground mt-2">Mock prices update automatically. Autopilot positions may trigger conditional sells.</p>
             </section>
           </>
         )}
@@ -514,6 +576,4 @@ export function TradeExecutionCard() {
     </Card>
   );
 }
-    
-
     
