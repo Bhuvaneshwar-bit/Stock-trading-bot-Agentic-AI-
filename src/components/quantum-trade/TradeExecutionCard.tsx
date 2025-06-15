@@ -33,8 +33,8 @@ const tradeExecutionSchema = z.object({
   ticker: z.string().min(1, "Ticker symbol is required.").max(10, "Ticker symbol is too long.").toUpperCase(),
   quantity: z.coerce.number().int().positive("Quantity must be a positive whole number."),
   purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
-  targetPrice: z.coerce.number().positive("Target price must be positive.").optional(), // Removed .nullable()
-  stopLossPrice: z.coerce.number().positive("Stop-loss price must be positive.").optional(), // Removed .nullable()
+  targetPrice: z.coerce.number().positive("Target price must be positive.").optional(),
+  stopLossPrice: z.coerce.number().positive("Stop-loss price must be positive.").optional(),
 }).refine(data => {
   if (data.targetPrice && data.purchasePrice && data.targetPrice <= data.purchasePrice) {
     return false;
@@ -66,6 +66,44 @@ interface TradeExecutionCardProps {
   onAddNotification: (notificationDetails: Omit<Notification, 'id' | 'time' | 'read'>) => void;
 }
 
+const sanitizeActivePosition = (rawPos: any): ActivePosition | null => {
+  if (!rawPos || typeof rawPos.id !== 'string' || typeof rawPos.ticker !== 'string') {
+    return null; // Basic validation
+  }
+
+  const quantity = typeof rawPos.quantity === 'number' && !isNaN(rawPos.quantity) ? rawPos.quantity : 0;
+  const purchasePrice = typeof rawPos.purchasePrice === 'number' && !isNaN(rawPos.purchasePrice) ? rawPos.purchasePrice : 0;
+  const currentMockPrice = typeof rawPos.currentMockPrice === 'number' && !isNaN(rawPos.currentMockPrice) ? rawPos.currentMockPrice : 0;
+  
+  let pTargetPrice: number | undefined = undefined;
+  if (rawPos.targetPrice != null && typeof rawPos.targetPrice === 'number' && !isNaN(rawPos.targetPrice)) {
+    pTargetPrice = rawPos.targetPrice;
+  }
+
+  let pStopLossPrice: number | undefined = undefined;
+  if (rawPos.stopLossPrice != null && typeof rawPos.stopLossPrice === 'number' && !isNaN(rawPos.stopLossPrice)) {
+    pStopLossPrice = rawPos.stopLossPrice;
+  }
+  
+  const mode = rawPos.mode === 'autopilot' || rawPos.mode === 'manual' ? rawPos.mode : 'manual';
+  const purchaseDate = typeof rawPos.purchaseDate === 'string' ? rawPos.purchaseDate : new Date(0).toISOString();
+  const simulatedVolatilityFactor = typeof rawPos.simulatedVolatilityFactor === 'number' && !isNaN(rawPos.simulatedVolatilityFactor) ? rawPos.simulatedVolatilityFactor : 0;
+
+  return {
+    id: rawPos.id,
+    ticker: rawPos.ticker,
+    quantity,
+    purchasePrice,
+    currentMockPrice,
+    targetPrice: pTargetPrice,
+    stopLossPrice: pStopLossPrice,
+    mode,
+    purchaseDate,
+    simulatedVolatilityFactor,
+  };
+};
+
+
 export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProps) {
   const [recommendations, setRecommendations] = useState<GenerateTradeRecommendationsOutput | null>(null);
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
@@ -76,16 +114,24 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
   const [activePositions, setActivePositions] = useState<ActivePosition[]>(() => {
     if (typeof window !== 'undefined') {
-      const savedPositions = localStorage.getItem('quantumTradePortfolio');
-      try {
-        return savedPositions ? JSON.parse(savedPositions) : [];
-      } catch (error) {
-        console.error("Error parsing portfolio from localStorage", error);
-        return [];
+      const savedPositionsJSON = localStorage.getItem('quantumTradePortfolio');
+      if (savedPositionsJSON) {
+        try {
+          const parsedRawPositions = JSON.parse(savedPositionsJSON);
+          if (Array.isArray(parsedRawPositions)) {
+            return parsedRawPositions.map(sanitizeActivePosition).filter(p => p !== null) as ActivePosition[];
+          }
+          return [];
+        } catch (error) {
+          console.error("Error parsing or sanitizing portfolio from localStorage", error);
+          return [];
+        }
       }
+      return [];
     }
     return [];
   });
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [tradeMode, setTradeMode] = useState<'autopilot' | 'manual'>('manual');
 
@@ -316,6 +362,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         clearInterval(intervalRef.current);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onAddNotification, toast]);
 
 
