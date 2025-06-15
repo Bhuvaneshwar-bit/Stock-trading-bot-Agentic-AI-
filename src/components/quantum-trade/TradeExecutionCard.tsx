@@ -64,73 +64,26 @@ const tradeExecutionSchema = z.object({
 
 interface TradeExecutionCardProps {
   onAddNotification: (notificationDetails: Omit<Notification, 'id' | 'time' | 'read'>) => void;
+  activePositions: ActivePosition[];
+  setActivePositions: React.Dispatch<React.SetStateAction<ActivePosition[]>>;
 }
 
+// This function can be removed if the parent page (`src/app/page.tsx`) handles all sanitization from localStorage.
+// However, if TradeExecutionCard were to ever load its own positions independently (not ideal), it would be needed.
+// For now, we assume the parent provides sanitized positions.
+/*
 const sanitizeActivePosition = (rawPos: any): ActivePosition | null => {
-  if (!rawPos || typeof rawPos.id !== 'string' || typeof rawPos.ticker !== 'string') {
-    return null; // Basic validation
-  }
-
-  const quantity = typeof rawPos.quantity === 'number' && !isNaN(rawPos.quantity) ? rawPos.quantity : 0;
-  const purchasePrice = typeof rawPos.purchasePrice === 'number' && !isNaN(rawPos.purchasePrice) ? rawPos.purchasePrice : 0;
-  const currentMockPrice = typeof rawPos.currentMockPrice === 'number' && !isNaN(rawPos.currentMockPrice) ? rawPos.currentMockPrice : 0;
-  
-  let pTargetPrice: number | undefined = undefined;
-  if (rawPos.targetPrice != null && typeof rawPos.targetPrice === 'number' && !isNaN(rawPos.targetPrice)) {
-    pTargetPrice = rawPos.targetPrice;
-  }
-
-  let pStopLossPrice: number | undefined = undefined;
-  if (rawPos.stopLossPrice != null && typeof rawPos.stopLossPrice === 'number' && !isNaN(rawPos.stopLossPrice)) {
-    pStopLossPrice = rawPos.stopLossPrice;
-  }
-  
-  const mode = rawPos.mode === 'autopilot' || rawPos.mode === 'manual' ? rawPos.mode : 'manual';
-  const purchaseDate = typeof rawPos.purchaseDate === 'string' ? rawPos.purchaseDate : new Date(0).toISOString();
-  const simulatedVolatilityFactor = typeof rawPos.simulatedVolatilityFactor === 'number' && !isNaN(rawPos.simulatedVolatilityFactor) ? rawPos.simulatedVolatilityFactor : 0;
-
-  return {
-    id: rawPos.id,
-    ticker: rawPos.ticker,
-    quantity,
-    purchasePrice,
-    currentMockPrice,
-    targetPrice: pTargetPrice,
-    stopLossPrice: pStopLossPrice,
-    mode,
-    purchaseDate,
-    simulatedVolatilityFactor,
-  };
+  // ... (implementation same as before, moved to parent for initial load)
 };
+*/
 
-
-export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProps) {
+export function TradeExecutionCard({ onAddNotification, activePositions, setActivePositions }: TradeExecutionCardProps) {
   const [recommendations, setRecommendations] = useState<GenerateTradeRecommendationsOutput | null>(null);
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const { toast } = useToast();
-
-  const [activePositions, setActivePositions] = useState<ActivePosition[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedPositionsJSON = localStorage.getItem('quantumTradePortfolio');
-      if (savedPositionsJSON) {
-        try {
-          const parsedRawPositions = JSON.parse(savedPositionsJSON);
-          if (Array.isArray(parsedRawPositions)) {
-            return parsedRawPositions.map(sanitizeActivePosition).filter(p => p !== null) as ActivePosition[];
-          }
-          return [];
-        } catch (error) {
-          console.error("Error parsing or sanitizing portfolio from localStorage", error);
-          return [];
-        }
-      }
-      return [];
-    }
-    return [];
-  });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [tradeMode, setTradeMode] = useState<'autopilot' | 'manual'>('manual');
@@ -140,9 +93,19 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
     defaultValues: {
       marketData: "Current market is volatile with tech stocks showing upward trends.",
       investmentPreferences: "Focus on long-term growth in renewable energy and AI sectors.",
-      portfolioState: "Holding: 100 AAPL, 50 TSLA. Cash: $10,000.",
+      portfolioState: activePositions.length > 0 
+        ? `Holding: ${activePositions.map(p => `${p.quantity} ${p.ticker}`).join(', ')}. Cash: $10,000.`
+        : "No active positions. Cash: $10,000.",
     },
   });
+
+  useEffect(() => {
+    const portfolioSummary = activePositions.length > 0
+      ? `Holding: ${activePositions.map(p => `${p.quantity} ${p.ticker}`).join(', ')}. Cash: $10,000.`
+      : "No active positions. Cash: $10,000.";
+    recommendationForm.setValue('portfolioState', portfolioSummary);
+  }, [activePositions, recommendationForm]);
+
 
   const tradeExecutionForm = useForm<z.infer<typeof tradeExecutionSchema>>({
     resolver: zodResolver(tradeExecutionSchema),
@@ -163,13 +126,6 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
       tradeExecutionForm.clearErrors('stopLossPrice');
     }
   }, [tradeMode, tradeExecutionForm]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('quantumTradePortfolio', JSON.stringify(activePositions));
-    }
-  }, [activePositions]);
-
 
   async function onGenerateRecommendations(values: z.infer<typeof recommendationFormSchema>) {
     setIsGeneratingRecommendations(true);
@@ -217,7 +173,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
         stopLossPrice: tradeMode === 'autopilot' ? values.stopLossPrice : undefined,
         mode: tradeMode,
         purchaseDate: new Date().toISOString(),
-        simulatedVolatilityFactor: tradeMode === 'autopilot' ? Math.random() * 0.5 + 0.05 : 0, 
+        simulatedVolatilityFactor: tradeMode === 'autopilot' ? Math.random() * 0.5 + 0.05 : 0.1, 
       };
       setActivePositions(prev => [...prev, newPosition]);
       
@@ -306,10 +262,15 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
     intervalRef.current = setInterval(() => {
       setActivePositions(prevPositions => {
-        const updatedPositions = prevPositions.map(pos => ({
-          ...pos,
-          currentMockPrice: calculateNewMockPrice(pos.currentMockPrice, pos.simulatedVolatilityFactor),
-        }));
+        let positionsChanged = false;
+        const updatedPositions = prevPositions.map(pos => {
+          const newMockPrice = calculateNewMockPrice(pos.currentMockPrice, pos.simulatedVolatilityFactor);
+          if (newMockPrice !== pos.currentMockPrice) positionsChanged = true;
+          return {
+            ...pos,
+            currentMockPrice: newMockPrice,
+          };
+        });
 
         const stillActivePositions: ActivePosition[] = [];
         for (const pos of updatedPositions) {
@@ -342,18 +303,16 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
 
           if (sold) {
             handleAutoSellNotification(pos, reason);
+            positionsChanged = true; 
           } else {
             stillActivePositions.push(pos);
           }
         }
         
-        if (prevPositions.length !== stillActivePositions.length || 
-            prevPositions.some((pp, i) => pp.currentMockPrice !== stillActivePositions[i]?.currentMockPrice)) {
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('quantumTradePortfolio', JSON.stringify(stillActivePositions));
-            }
+        if (positionsChanged) {
+            return stillActivePositions;
         }
-        return stillActivePositions;
+        return prevPositions; // Avoid re-render if nothing changed in values that would trigger a state update
       });
     }, 3000); 
 
@@ -363,7 +322,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onAddNotification, toast]);
+  }, [onAddNotification, toast, setActivePositions]); // Added setActivePositions to dependencies
 
 
   return (
@@ -611,7 +570,7 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
                 <Button 
                   type="button" 
                   onClick={tradeExecutionForm.handleSubmit(values => onExecuteTrade(values, 'SELL'))} 
-                  disabled={isExecutingTrade || !tradeExecutionForm.formState.isValid} 
+                  disabled={isExecutingTrade || !tradeExecutionForm.formState.isValid || activePositions.length === 0 || !activePositions.find(p => p.ticker === tradeExecutionForm.getValues("ticker")?.toUpperCase())} 
                   variant="destructive" 
                   className="w-full"
                 >
@@ -685,4 +644,3 @@ export function TradeExecutionCard({ onAddNotification }: TradeExecutionCardProp
     </Card>
   );
 }
-
