@@ -1,10 +1,8 @@
 
 "use client"
 
-import { BarChart, TrendingUp, LineChart as LineChartIcon, Info, Wallet } from "lucide-react"
+import { LineChart as LineChartIcon, Info } from "lucide-react"
 import {
-  Bar,
-  BarChart as RechartsBarChart,
   LineChart as RechartsLineChart,
   Line,
   CartesianGrid,
@@ -12,7 +10,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Legend,
 } from "recharts"
 
 import {
@@ -23,28 +20,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ActivePosition } from "@/types";
-
-const generalMarketChartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-];
-
-const generalMarketChartConfig = {
-  desktop: {
-    label: "Market Volume A", // Changed label for clarity
-    color: "hsl(var(--chart-1))",
-  },
-  mobile: {
-    label: "Market Volume B", // Changed label for clarity
-    color: "hsl(var(--chart-2))",
-  },
-};
 
 const generateMockStockData = (ticker: string) => {
   const data = [];
@@ -75,52 +52,53 @@ interface MarketIndicatorsChartProps {
 }
 
 export function MarketIndicatorsChart({ selectedStockTicker, activePositions = [] }: MarketIndicatorsChartProps) {
-  const [stockChartData, setStockChartData] = useState<Array<{ date: string; price: number }>>([]);
+  const [displayTicker, setDisplayTicker] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<Array<{ date: string; price: number }>>([]);
 
   useEffect(() => {
+    let tickerToChart: string | null = null;
     if (selectedStockTicker) {
-      setStockChartData(generateMockStockData(selectedStockTicker));
+      tickerToChart = selectedStockTicker;
+    } else if (activePositions.length > 0) {
+      // Display the first active position's trend if no specific stock is selected
+      tickerToChart = activePositions[0].ticker;
     }
-  }, [selectedStockTicker]);
+    
+    setDisplayTicker(tickerToChart);
 
-  const stockChartConfig = {
+    if (tickerToChart) {
+      setChartData(generateMockStockData(tickerToChart));
+    } else {
+      setChartData([]); // Clear chart data if no ticker
+    }
+  }, [selectedStockTicker, activePositions]);
+
+
+  const stockChartConfig = useMemo(() => ({
     price: {
-      label: selectedStockTicker ? `${selectedStockTicker} Price` : "Price",
+      label: displayTicker ? `${displayTicker} Price` : "Price",
       color: "hsl(var(--chart-1))",
     },
-  };
-
-  const portfolioChartData = activePositions.map(p => ({
-    name: p.ticker,
-    price: p.currentMockPrice,
-  }));
-
-  const portfolioChartConfig = {
-    price: {
-      label: "Current Price",
-      color: "hsl(var(--chart-2))", // Using a different chart color
-    },
-  };
+  }), [displayTicker]);
 
 
   const renderContent = () => {
-    if (selectedStockTicker && stockChartData.length > 0) {
-      // Priority 1: Show selected stock's historical line chart
+    if (displayTicker && chartData.length > 0) {
       return (
         <>
           <div className="flex items-center mb-2">
             <LineChartIcon className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
             <CardTitle className="text-2xl font-headline">
-              {`${selectedStockTicker} Price Trend`}
+              {`${displayTicker} Price Trend`}
             </CardTitle>
           </div>
           <CardDescription>
-            Mock historical price data for {selectedStockTicker}.
+            Mock historical price data for {displayTicker}.
           </CardDescription>
           <CardContent>
             <ChartContainer config={stockChartConfig} className="min-h-[300px] w-full">
               <ResponsiveContainer width="100%" height={300}>
-                <RechartsLineChart data={stockChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.5)" />
                   <XAxis
                     dataKey="date"
@@ -156,117 +134,22 @@ export function MarketIndicatorsChart({ selectedStockTicker, activePositions = [
           </CardContent>
         </>
       );
-    } else if (activePositions.length > 0) {
-      // Priority 2: Show bar chart of active portfolio holdings' current prices
-      return (
-         <>
-          <div className="flex items-center mb-2">
-            <Wallet className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
-            <CardTitle className="text-2xl font-headline">My Holdings: Current Prices</CardTitle>
-          </div>
-          <CardDescription>Current mock prices of stocks in your portfolio.</CardDescription>
-          <CardContent>
-            <ChartContainer config={portfolioChartConfig} className="min-h-[300px] w-full">
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsBarChart data={portfolioChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.5)" />
-                  <XAxis
-                    dataKey="name"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `$${value.toFixed(0)}`}
-                    domain={['auto', 'auto']}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "hsl(var(--card)/0.5)" }}
-                    content={<ChartTooltipContent />}
-                  />
-                  <Bar dataKey="price" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name={portfolioChartConfig.price.label} />
-                </RechartsBarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </>
-      );
-    } else if (selectedStockTicker && stockChartData.length === 0) {
-        // Case where a stock is selected but data is still loading (or failed)
-        return (
-            <>
-                <div className="flex items-center mb-2">
-                    <LineChartIcon className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
-                    <CardTitle className="text-2xl font-headline">
-                        {`${selectedStockTicker} Price Trend`}
-                    </CardTitle>
-                </div>
-                <CardDescription>
-                    Mock historical price data for {selectedStockTicker}.
-                </CardDescription>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground">
-                        <Info className="h-10 w-10 mb-4 text-accent" />
-                        <p className="text-lg">Generating chart for {selectedStockTicker}...</p>
-                        <p className="text-sm">This may take a moment.</p>
-                    </div>
-                </CardContent>
-            </>
-        );
-    }
-    else {
-      // Priority 3: Fallback to general market indicators
+    } else {
+      // Placeholder when no stock is selected and no active positions
       return (
         <>
           <div className="flex items-center mb-2">
-            <TrendingUp className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
-            <CardTitle className="text-2xl font-headline">Key Market Indicators</CardTitle>
+            <Info className="h-8 w-8 mr-3 text-primary drop-shadow-neon-primary" />
+            <CardTitle className="text-2xl font-headline">Market Visualization</CardTitle>
           </div>
-          <CardDescription>January - June 2024 (Mock Data)</CardDescription>
+          <CardDescription>
+            Price trends for selected or held stocks will appear here.
+          </CardDescription>
           <CardContent>
-            <ChartContainer config={generalMarketChartConfig} className="min-h-[300px] w-full">
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsBarChart data={generalMarketChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.5)" />
-                  <XAxis
-                    dataKey="month"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `$${value}`}
-                    domain={['auto', 'auto']}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "hsl(var(--card)/0.5)" }}
-                    content={<ChartTooltipContent hideLabel />}
-                  />
-                  <Legend content={({ payload }) => (
-                    <div className="flex justify-center space-x-4 mt-4">
-                      {payload?.map((entry, index) => (
-                        <div key={`item-${index}`} className="flex items-center space-x-1 text-xs text-muted-foreground">
-                          <span style={{ backgroundColor: entry.color }} className="h-2 w-2 rounded-full inline-block"></span>
-                          <span>{entry.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )} />
-                  <Bar dataKey="desktop" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name={generalMarketChartConfig.desktop.label} />
-                  <Bar dataKey="mobile" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name={generalMarketChartConfig.mobile.label} />
-                </RechartsBarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground border border-dashed border-border/50 rounded-md">
+              <LineChartIcon className="h-12 w-12 mb-4 text-muted-foreground/50" />
+              <p className="text-lg text-center">Select a stock for analysis or make a trade to see its price trend.</p>
+            </div>
           </CardContent>
         </>
       );
