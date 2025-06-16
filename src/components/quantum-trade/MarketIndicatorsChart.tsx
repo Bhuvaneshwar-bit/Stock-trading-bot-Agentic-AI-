@@ -23,7 +23,7 @@ import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
 import { useEffect, useState, useMemo } from "react";
 import type { ActivePosition } from "@/types";
 
-const generateMockStockData = (ticker: string) => {
+const generateMockStockDataInternal = (ticker: string): Array<{ date: string; price: number }> => {
   const data = [];
   let lastPrice = Math.random() * 200 + 50; 
   const startDate = new Date(2024, 0, 1); 
@@ -54,24 +54,30 @@ interface MarketIndicatorsChartProps {
 export function MarketIndicatorsChart({ selectedStockTicker, activePositions = [] }: MarketIndicatorsChartProps) {
   const [displayTicker, setDisplayTicker] = useState<string | null>(null);
   const [chartData, setChartData] = useState<Array<{ date: string; price: number }>>([]);
+  const [dataCache, setDataCache] = useState<Record<string, Array<{ date: string; price: number }>>>({});
 
   useEffect(() => {
     let tickerToChart: string | null = null;
     if (selectedStockTicker) {
       tickerToChart = selectedStockTicker;
     } else if (activePositions.length > 0) {
-      // Display the first active position's trend if no specific stock is selected
       tickerToChart = activePositions[0].ticker;
     }
     
     setDisplayTicker(tickerToChart);
 
     if (tickerToChart) {
-      setChartData(generateMockStockData(tickerToChart));
+      if (dataCache[tickerToChart]) {
+        setChartData(dataCache[tickerToChart]);
+      } else {
+        const newData = generateMockStockDataInternal(tickerToChart);
+        setChartData(newData);
+        setDataCache(prevCache => ({ ...prevCache, [tickerToChart as string]: newData }));
+      }
     } else {
-      setChartData([]); // Clear chart data if no ticker
+      setChartData([]); 
     }
-  }, [selectedStockTicker, activePositions]);
+  }, [selectedStockTicker, activePositions, dataCache]);
 
 
   const stockChartConfig = useMemo(() => ({
@@ -135,7 +141,6 @@ export function MarketIndicatorsChart({ selectedStockTicker, activePositions = [
         </>
       );
     } else {
-      // Placeholder when no stock is selected and no active positions
       return (
         <>
           <div className="flex items-center mb-2">

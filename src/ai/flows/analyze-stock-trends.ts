@@ -18,6 +18,7 @@ const AnalyzeStockTrendsOutputSchema = z.object({
   summary: z.string().describe('A summary of the stock trend analysis.'),
   recommendation: z.string().describe('A recommendation on whether to buy, sell, or hold the stock.'),
   reason: z.string().describe('The reasoning behind the recommendation.'),
+  confidenceScore: z.number().min(0).max(100).describe('A numerical confidence score (0-100) from the AI regarding its recommendation.'),
 });
 export type AnalyzeStockTrendsOutput = z.infer<typeof AnalyzeStockTrendsOutputSchema>;
 
@@ -29,7 +30,8 @@ const prompt = ai.definePrompt({
   name: 'analyzeStockTrendsPrompt',
   input: {schema: AnalyzeStockTrendsInputSchema},
   output: {schema: AnalyzeStockTrendsOutputSchema},
-  prompt: `You are an expert stock market analyst. Analyze the stock market data and news for the given ticker symbol and provide a summary, recommendation, and reason for the recommendation.
+  prompt: `You are an expert stock market analyst. Analyze the stock market data and news for the given ticker symbol.
+Provide a summary, recommendation, reason for the recommendation, and a confidence score (0-100) for your recommendation.
 
 Ticker Symbol: {{{ticker}}}
 \nProvide the output in JSON format.`,

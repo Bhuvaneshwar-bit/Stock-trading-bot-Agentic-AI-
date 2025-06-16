@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { TrendingUp, FileText, Lightbulb, Search, Loader2, CheckCircle } from 'lucide-react';
+import { TrendingUp, FileText, Lightbulb, Search, Loader2, CheckCircle, Percent } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +15,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { analyzeStockTrends, type AnalyzeStockTrendsOutput } from '@/ai/flows/analyze-stock-trends';
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 
-// No Zod schema for form, as it's just a search input now.
 
 interface StockInfo {
   ticker: string;
@@ -53,22 +53,20 @@ export function StockAnalysisCard({ onStockSelected }: StockAnalysisCardProps) {
   const [selectedTickerForAnalysis, setSelectedTickerForAnalysis] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Form hook is not strictly necessary for a single search input without Zod validation,
-  // but kept if more complex search/filter criteria are added later.
   const form = useForm(); 
 
   const filteredStocks = useMemo(() => {
-    if (!searchTerm) return mockStocks.slice(0, 5); // Show top 5 if no search term
+    if (!searchTerm) return mockStocks.slice(0, 5); 
     return mockStocks.filter(
       stock =>
         stock.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
         stock.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 10); // Limit results for performance
+    ).slice(0, 10); 
   }, [searchTerm]);
 
   async function handleStockSelectAndAnalyze(ticker: string) {
     setSelectedTickerForAnalysis(ticker);
-    onStockSelected(ticker); // Update chart
+    onStockSelected(ticker); 
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
@@ -113,7 +111,7 @@ export function StockAnalysisCard({ onStockSelected }: StockAnalysisCardProps) {
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  if (!e.target.value) { // Clear selection if search is cleared
+                  if (!e.target.value) { 
                     setSelectedTickerForAnalysis(null);
                     onStockSelected(null);
                     setAnalysisResult(null);
@@ -186,8 +184,21 @@ export function StockAnalysisCard({ onStockSelected }: StockAnalysisCardProps) {
             
             <div className="p-4 border rounded-md bg-card/50">
               <div className="flex items-start">
-                <Lightbulb className="h-5 w-5 mr-2 mt-1 text-accent drop-shadow-neon-accent flex-shrink-0 opacity-0" /> {/* Placeholder for alignment */}
-                 <div className="flex-grow"> {/* Ensure text can wrap */}
+                 <Percent className="h-5 w-5 mr-2 mt-1 text-accent drop-shadow-neon-accent flex-shrink-0" />
+                 <div className="w-full">
+                    <h4 className="font-semibold">Confidence Score</h4>
+                    <div className="flex items-center mt-1">
+                        <Progress value={analysisResult.confidenceScore} className="w-[calc(100%-45px)] h-3 mr-2" />
+                        <span className="text-sm text-muted-foreground font-medium">{analysisResult.confidenceScore}%</span>
+                    </div>
+                  </div>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-md bg-card/50">
+              <div className="flex items-start">
+                 <Lightbulb className="h-5 w-5 mr-2 mt-1 text-accent drop-shadow-neon-accent flex-shrink-0 opacity-0" /> {/* Placeholder for alignment */}
+                 <div className="flex-grow"> 
                     <h4 className="font-semibold">Reasoning</h4>
                     <p className="text-muted-foreground text-sm whitespace-pre-wrap">{analysisResult.reason}</p>
                   </div>
